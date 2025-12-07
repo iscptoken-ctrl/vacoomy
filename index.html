@@ -4,24 +4,31 @@
 <meta charset="UTF-8">
 <title>Vacoomy</title>
 <style>
-  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; }
+  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; position: relative; }
   #gameCanvas { background: #fff; border: 2px solid #000; touch-action: none; }
-  #score { position: absolute; top: 10px; left: 10px; font-size: 20px; font-weight: bold; }
+  #score, #timer { position: absolute; font-size: 20px; font-weight: bold; }
+  #score { top: 10px; left: 10px; }
+  #timer { top: 10px; right: 10px; }
 </style>
 </head>
 <body>
 <div id="score">Puan: 0</div>
+<div id="timer">02:00</div>
 <canvas id="gameCanvas" width="600" height="600" tabindex="0"></canvas>
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-canvas.focus(); // Klavye olayları için focus
+canvas.focus();
 
 const scoreDisplay = document.getElementById('score');
+const timerDisplay = document.getElementById('timer');
 
-let vacuum = { x: 300, y: 300, size: 25, angle: 0 };
+let vacuum = { x: 300, y: 300, size: 50, img: new Image() };
+vacuum.img.src = 'sweep.png'; // Süpürge görseli
 let numbers = [];
 let score = 0;
+let totalTime = 120;
+let elapsedTime = 0;
 
 function spawnNumber() {
   const value = Math.floor(Math.random() * 9) + 1;
@@ -35,17 +42,14 @@ function spawnNumber() {
 setInterval(spawnNumber, 1000);
 
 function drawVacuum() {
-  ctx.save();
-  ctx.translate(vacuum.x, vacuum.y);
-  ctx.rotate(vacuum.angle);
-  ctx.fillStyle = 'blue';
+  // Çekim alanı
+  ctx.fillStyle = 'rgba(0,0,255,0.2)';
   ctx.beginPath();
-  ctx.moveTo(0, -vacuum.size/2);
-  ctx.lineTo(vacuum.size/2, vacuum.size/2);
-  ctx.lineTo(-vacuum.size/2, vacuum.size/2);
-  ctx.closePath();
+  ctx.arc(vacuum.x, vacuum.y, 50, 0, Math.PI*2);
   ctx.fill();
-  ctx.restore();
+
+  // Süpürge görseli
+  ctx.drawImage(vacuum.img, vacuum.x - vacuum.size/2, vacuum.y - vacuum.size/2, vacuum.size, vacuum.size);
 }
 
 function drawNumbers() {
@@ -63,22 +67,38 @@ canvas.addEventListener('keydown', e => keys[e.key] = true);
 canvas.addEventListener('keyup', e => keys[e.key] = false);
 
 function update() {
-  if(keys['ArrowUp']) { vacuum.y -= 5; vacuum.angle = -Math.PI/2; }
-  if(keys['ArrowDown']) { vacuum.y += 5; vacuum.angle = Math.PI/2; }
-  if(keys['ArrowLeft']) { vacuum.x -= 5; vacuum.angle = Math.PI; }
-  if(keys['ArrowRight']) { vacuum.x += 5; vacuum.angle = 0; }
+  if(keys['ArrowUp']) vacuum.y -= 5;
+  if(keys['ArrowDown']) vacuum.y += 5;
+  if(keys['ArrowLeft']) vacuum.x -= 5;
+  if(keys['ArrowRight']) vacuum.x += 5;
 
   vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
   vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
 
   numbers.forEach((num, i) => {
-    if(Math.hypot(vacuum.x - num.x, vacuum.y - num.y) < 25) {
+    const dx = vacuum.x - num.x;
+    const dy = vacuum.y - num.y;
+    const dist = Math.hypot(dx, dy);
+
+    if(dist < 50) { // Çekim alanına girdi
+      num.x += dx * 0.05; // Yavaşça süpürgeye doğru
+      num.y += dy * 0.05;
+    }
+
+    if(dist < 20) { // Toplama mesafesi
       score += num.value;
       numbers.splice(i,1);
     }
   });
 
   scoreDisplay.textContent = `Puan: ${score}`;
+
+  // Timer güncelle
+  elapsedTime++;
+  const remaining = Math.max(0, totalTime - Math.floor(elapsedTime / 60));
+  const minutes = String(Math.floor(remaining / 60)).padStart(2,'0');
+  const seconds = String(remaining % 60).padStart(2,'0');
+  timerDisplay.textContent = `${minutes}:${seconds}`;
 }
 
 function loop() {
