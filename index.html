@@ -11,10 +11,12 @@
 </head>
 <body>
 <div id="score">Puan: 0</div>
-<canvas id="gameCanvas" width="600" height="600"></canvas>
+<canvas id="gameCanvas" width="600" height="600" tabindex="0"></canvas>
 <script>
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
+canvas.focus(); // Klavye olayları için focus
+
 const scoreDisplay = document.getElementById('score');
 
 let vacuum = { x: 300, y: 300, size: 25, angle: 0 };
@@ -27,7 +29,7 @@ function spawnNumber() {
     x: Math.random() * (canvas.width - 20),
     y: Math.random() * (canvas.height - 20),
     value: value,
-    ttl: value * 60 // 1 saniye = 60 frame olarak varsayalım
+    ttl: value * 60
   });
 }
 setInterval(spawnNumber, 1000);
@@ -57,20 +59,18 @@ function drawNumbers() {
 }
 
 let keys = {};
-window.addEventListener('keydown', e => keys[e.key] = true);
-window.addEventListener('keyup', e => keys[e.key] = false);
+canvas.addEventListener('keydown', e => keys[e.key] = true);
+canvas.addEventListener('keyup', e => keys[e.key] = false);
 
 function update() {
-  if(keys['ArrowUp']) { vacuum.y -= 3; vacuum.angle = -Math.PI/2; }
-  if(keys['ArrowDown']) { vacuum.y += 3; vacuum.angle = Math.PI/2; }
-  if(keys['ArrowLeft']) { vacuum.x -= 3; vacuum.angle = Math.PI; }
-  if(keys['ArrowRight']) { vacuum.x += 3; vacuum.angle = 0; }
+  if(keys['ArrowUp']) { vacuum.y -= 5; vacuum.angle = -Math.PI/2; }
+  if(keys['ArrowDown']) { vacuum.y += 5; vacuum.angle = Math.PI/2; }
+  if(keys['ArrowLeft']) { vacuum.x -= 5; vacuum.angle = Math.PI; }
+  if(keys['ArrowRight']) { vacuum.x += 5; vacuum.angle = 0; }
 
-  // sınırlar
   vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
   vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
 
-  // çarpışma kontrolü
   numbers.forEach((num, i) => {
     if(Math.hypot(vacuum.x - num.x, vacuum.y - num.y) < 25) {
       score += num.value;
