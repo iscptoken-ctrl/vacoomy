@@ -24,7 +24,16 @@
   <button id="startBtn">Start</button>
 </div>
 
+<!-- Supabase JS -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
 <script>
+// Supabase ayarları
+const SUPABASE_URL = "https://YOUR_PROJECT.supabase.co"; // kendi URL'n
+const SUPABASE_KEY = "YOUR_ANON_KEY"; // kendi anon key'n
+const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Oyun değişkenleri
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreDisplay = document.getElementById('score');
@@ -36,27 +45,11 @@ const startBtn = document.getElementById('startBtn');
 let vacuum = { x: 300, y: 300, size: 40, emoji: "🤖" };
 let numbers = [];
 let score = 0;
-let totalTime = 120; // 2 dakika
+let totalTime = 120;
 let elapsedTime = 0;
 let gameRunning = false;
-
-// Mobil hedef
 let targetX = null;
 let targetY = null;
-
-// Spawn rakamları
-function spawnNumbers() {
-  if(!gameRunning) return;
-  for(let i=0;i<3;i++){
-    const value = Math.floor(Math.random() * 9) + 1;
-    numbers.push({
-      x: Math.random() * (canvas.width - 20),
-      y: Math.random() * (canvas.height - 20),
-      value: value,
-      ttl: value * 60
-    });
-  }
-}
 let spawnInterval;
 
 // Start butonu
@@ -69,7 +62,7 @@ startBtn.addEventListener('click', ()=>{
 });
 
 // Reset oyun
-function resetGame() {
+function resetGame(){
   vacuum.x = 300;
   vacuum.y = 300;
   numbers = [];
@@ -81,137 +74,109 @@ function resetGame() {
   timerDisplay.textContent = `02:00`;
 }
 
+// Spawn rakamları
+function spawnNumbers() {
+  if(!gameRunning) return;
+  for(let i=0;i<3;i++){
+    const value = Math.floor(Math.random() * 9) + 1;
+    numbers.push({
+      x: Math.random()*(canvas.width-20),
+      y: Math.random()*(canvas.height-20),
+      value: value,
+      ttl: value*60
+    });
+  }
+}
+
 // Çizim fonksiyonları
 function drawVacuum() {
   ctx.fillStyle = 'rgba(0,0,255,0.2)';
   ctx.beginPath();
   ctx.arc(vacuum.x, vacuum.y, 50, 0, Math.PI*2);
   ctx.fill();
-
   ctx.font = `${vacuum.size}px Arial`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  ctx.textAlign="center";
+  ctx.textBaseline="middle";
   ctx.fillText(vacuum.emoji, vacuum.x, vacuum.y);
 }
 
-function drawNumbers() {
-  numbers.forEach(num => {
-    ctx.fillStyle = 'red';
-    ctx.font = '20px Arial';
-    ctx.fillText(num.value, num.x, num.y);
+function drawNumbers(){
+  numbers.forEach(num=>{
+    ctx.fillStyle='red';
+    ctx.font='20px Arial';
+    ctx.fillText(num.value,num.x,num.y);
     num.ttl--;
   });
-  numbers = numbers.filter(num => num.ttl > 0);
+  numbers = numbers.filter(num=>num.ttl>0);
 }
 
-// Klavye kontrolleri (WASD)
+// Klavye (WASD)
 let keys = {};
-canvas.addEventListener('keydown', e => {
-  const key = e.key.toLowerCase();
-  if(["w","a","s","d"].includes(key)) keys[key] = true;
-});
-canvas.addEventListener('keyup', e => {
-  const key = e.key.toLowerCase();
-  if(["w","a","s","d"].includes(key)) keys[key] = false;
-});
+canvas.addEventListener('keydown', e=>{ const k=e.key.toLowerCase(); if(["w","a","s","d"].includes(k)) keys[k]=true; });
+canvas.addEventListener('keyup', e=>{ const k=e.key.toLowerCase(); if(["w","a","s","d"].includes(k)) keys[k]=false; });
 
-// Mobil kontrol
-canvas.addEventListener('touchstart', e => {
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.touches[0].clientX - rect.left;
-  targetY = e.touches[0].clientY - rect.top;
-});
-canvas.addEventListener('touchmove', e => {
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.touches[0].clientX - rect.left;
-  targetY = e.touches[0].clientY - rect.top;
-});
+// Mobil
+canvas.addEventListener('touchstart', e=>{ const rect=canvas.getBoundingClientRect(); targetX=e.touches[0].clientX-rect.left; targetY=e.touches[0].clientY-rect.top; });
+canvas.addEventListener('touchmove', e=>{ const rect=canvas.getBoundingClientRect(); targetX=e.touches[0].clientX-rect.left; targetY=e.touches[0].clientY-rect.top; });
 
-// Global ranking fonksiyonu
+// Supabase skor fonksiyonları
 async function saveScoreGlobal(score){
-  try {
-    await fetch("/api/save-score", {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body: JSON.stringify({ score })
-    });
-  } catch(e){
-    console.error("Skor gönderilemedi", e);
-  }
+  await supabase.from('scores').insert([{ score }]);
 }
 
 async function showRankingGlobal(){
-  try {
-    const res = await fetch("/api/get-ranking");
-    const data = await res.json();
-    alert("Global Ranking:\n" + data.ranking.map((s,i)=>`${i+1}. ${s}`).join("\n"));
-  } catch(e){
-    console.error("Ranking alınamadı", e);
-  }
+  const { data, error } = await supabase.from('scores').select('score').order('score', { ascending:false }).limit(10);
+  if(error) { console.error(error); return; }
+  alert("Global Ranking:\n"+data.map((s,i)=>`${i+1}. ${s.score}`).join("\n"));
 }
 
 // Güncelleme
-function update() {
+function update(){
   if(!gameRunning) return;
 
-  // WASD hareketi
-  if(keys["w"]) vacuum.y -= 5;
-  if(keys["s"]) vacuum.y += 5;
-  if(keys["a"]) vacuum.x -= 5;
-  if(keys["d"]) vacuum.x += 5;
+  if(keys["w"]) vacuum.y-=5;
+  if(keys["s"]) vacuum.y+=5;
+  if(keys["a"]) vacuum.x-=5;
+  if(keys["d"]) vacuum.x+=5;
 
-  // Mobil hareket
-  if(targetX !== null && targetY !== null) {
-    const dx = targetX - vacuum.x;
-    const dy = targetY - vacuum.y;
-    vacuum.x += dx * 0.05;
-    vacuum.y += dy * 0.05;
+  if(targetX!==null && targetY!==null){
+    const dx=targetX-vacuum.x;
+    const dy=targetY-vacuum.y;
+    vacuum.x+=dx*0.05;
+    vacuum.y+=dy*0.05;
   }
 
-  // Sınırlar
-  vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
-  vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
+  vacuum.x = Math.max(0, Math.min(canvas.width,vacuum.x));
+  vacuum.y = Math.max(0, Math.min(canvas.height,vacuum.y));
 
-  // Rakam çekimi
-  numbers.forEach((num, i) => {
-    const dxn = vacuum.x - num.x;
-    const dyn = vacuum.y - num.y;
-    const dist = Math.hypot(dxn, dyn);
-
-    if(dist < 50) {
-      num.x += dxn * 0.05;
-      num.y += dyn * 0.05;
-    }
-
-    if(dist < 25) {
-      score += num.value;
-      numbers.splice(i,1);
-    }
+  numbers.forEach((num,i)=>{
+    const dxn=vacuum.x-num.x;
+    const dyn=vacuum.y-num.y;
+    const dist=Math.hypot(dxn,dyn);
+    if(dist<50){ num.x+=dxn*0.05; num.y+=dyn*0.05; }
+    if(dist<25){ score+=num.value; numbers.splice(i,1); }
   });
 
-  scoreDisplay.textContent = `Puan: ${score}`;
-
-  // Timer
+  scoreDisplay.textContent=`Puan: ${score}`;
   elapsedTime++;
-  const remaining = Math.max(0, totalTime - Math.floor(elapsedTime / 60));
-  const minutes = String(Math.floor(remaining / 60)).padStart(2,'0');
-  const seconds = String(remaining % 60).padStart(2,'0');
-  timerDisplay.textContent = `${minutes}:${seconds}`;
+  const remaining=Math.max(0,totalTime-Math.floor(elapsedTime/60));
+  const minutes=String(Math.floor(remaining/60)).padStart(2,'0');
+  const seconds=String(remaining%60).padStart(2,'0');
+  timerDisplay.textContent=`${minutes}:${seconds}`;
 
-  // Oyun bitişi
-  if(remaining <= 0){
-    gameRunning = false;
+  if(remaining<=0){
+    gameRunning=false;
     clearInterval(spawnInterval);
-    saveScoreGlobal(score);       // Global skor kaydet
-    overlay.style.display = 'flex';
-    message.textContent = `Oyun Bitti! Skor: ${score}`;
-    startBtn.textContent = "Tekrar Oyna";
-    showRankingGlobal();          // Global ranking göster
+    saveScoreGlobal(score);
+    overlay.style.display='flex';
+    message.textContent=`Oyun Bitti! Skor: ${score}`;
+    startBtn.textContent="Tekrar Oyna";
+    showRankingGlobal();
   }
 }
 
 // Döngü
-function loop() {
+function loop(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   update();
   drawVacuum();
