@@ -33,7 +33,7 @@ const overlay = document.getElementById('overlay');
 const message = document.getElementById('message');
 const startBtn = document.getElementById('startBtn');
 
-let vacuum = { x: 300, y: 300, size: 40, emoji: "🧹" };
+let vacuum = { x: 300, y: 300, size: 40, emoji: "🤖" };
 let numbers = [];
 let score = 0;
 let totalTime = 120; // 2 dakika
@@ -58,20 +58,6 @@ function spawnNumbers() {
   }
 }
 let spawnInterval;
-
-// Local ranking
-function saveScore(score) {
-  let ranking = JSON.parse(localStorage.getItem("vacoomy_ranking") || "[]");
-  ranking.push(score);
-  ranking.sort((a,b) => b-a);
-  ranking = ranking.slice(0,10);
-  localStorage.setItem("vacoomy_ranking", JSON.stringify(ranking));
-}
-
-function showRanking() {
-  let ranking = JSON.parse(localStorage.getItem("vacoomy_ranking") || "[]");
-  alert("Ranking:\n" + ranking.map((s,i)=>`${i+1}. ${s}`).join("\n"));
-}
 
 // Start butonu
 startBtn.addEventListener('click', ()=>{
@@ -141,6 +127,29 @@ canvas.addEventListener('touchmove', e => {
   targetY = e.touches[0].clientY - rect.top;
 });
 
+// Global ranking fonksiyonu
+async function saveScoreGlobal(score){
+  try {
+    await fetch("/api/save-score", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({ score })
+    });
+  } catch(e){
+    console.error("Skor gönderilemedi", e);
+  }
+}
+
+async function showRankingGlobal(){
+  try {
+    const res = await fetch("/api/get-ranking");
+    const data = await res.json();
+    alert("Global Ranking:\n" + data.ranking.map((s,i)=>`${i+1}. ${s}`).join("\n"));
+  } catch(e){
+    console.error("Ranking alınamadı", e);
+  }
+}
+
 // Güncelleme
 function update() {
   if(!gameRunning) return;
@@ -193,11 +202,11 @@ function update() {
   if(remaining <= 0){
     gameRunning = false;
     clearInterval(spawnInterval);
-    saveScore(score);
+    saveScoreGlobal(score);       // Global skor kaydet
     overlay.style.display = 'flex';
     message.textContent = `Oyun Bitti! Skor: ${score}`;
     startBtn.textContent = "Tekrar Oyna";
-    showRanking();
+    showRankingGlobal();          // Global ranking göster
   }
 }
 
