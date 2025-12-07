@@ -26,7 +26,7 @@ body { display: flex; justify-content: center; align-items: center; height: 100v
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-// Supabase ayarları (senin verdiğin bilgilerle)
+// Supabase ayarları
 const SUPABASE_URL = `https://rwpzycqetqfeasveviho.supabase.co`;
 const SUPABASE_KEY = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3cHp5Y3FldHFmZWFzdmV2aWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMzEwOTYsImV4cCI6MjA4MDcwNzA5Nn0.Rj0zvPhqgfJBIcp_RA6kmRj-vLpBumz-Tu0BNRQoKmI`;
 const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -48,12 +48,15 @@ let elapsedTime = 0;
 let gameRunning = false;
 let targetX = null;
 let targetY = null;
-let spawnInterval;
+let spawnInterval = null;
+let loopId = null;
+let keys = {};
 
 // Start butonu
 startBtn.addEventListener('click', ()=>{
   overlay.style.display = 'none';
   canvas.style.display = 'block';
+  canvas.focus(); // focus ekledik
   resetGame();
   gameRunning = true;
   spawnInterval = setInterval(spawnNumbers, 500);
@@ -108,14 +111,27 @@ function drawNumbers(){
   numbers = numbers.filter(num=>num.ttl>0);
 }
 
-// Klavye (WASD)
-let keys = {};
-canvas.addEventListener('keydown', e=>{ const k=e.key.toLowerCase(); if(["w","a","s","d"].includes(k)) keys[k]=true; });
-canvas.addEventListener('keyup', e=>{ const k=e.key.toLowerCase(); if(["w","a","s","d"].includes(k)) keys[k]=false; });
+// Klavye event listener’ları global document’e
+document.addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if(["w","a","s","d"].includes(k)) keys[k] = true;
+});
+document.addEventListener('keyup', e => {
+  const k = e.key.toLowerCase();
+  if(["w","a","s","d"].includes(k)) keys[k] = false;
+});
 
 // Mobil
-canvas.addEventListener('touchstart', e=>{ const rect=canvas.getBoundingClientRect(); targetX=e.touches[0].clientX-rect.left; targetY=e.touches[0].clientY-rect.top; });
-canvas.addEventListener('touchmove', e=>{ const rect=canvas.getBoundingClientRect(); targetX=e.touches[0].clientX-rect.left; targetY=e.touches[0].clientY-rect.top; });
+canvas.addEventListener('touchstart', e=>{
+  const rect=canvas.getBoundingClientRect();
+  targetX=e.touches[0].clientX-rect.left;
+  targetY=e.touches[0].clientY-rect.top;
+});
+canvas.addEventListener('touchmove', e=>{
+  const rect=canvas.getBoundingClientRect();
+  targetX=e.touches[0].clientX-rect.left;
+  targetY=e.touches[0].clientY-rect.top;
+});
 
 // Supabase skor fonksiyonları
 async function saveScoreGlobal(score){
@@ -179,7 +195,7 @@ function loop(){
   update();
   drawVacuum();
   drawNumbers();
-  requestAnimationFrame(loop);
+  loopId = requestAnimationFrame(loop);
 }
 loop();
 </script>
