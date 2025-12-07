@@ -29,19 +29,24 @@ let score = 0;
 let totalTime = 120;
 let elapsedTime = 0;
 
-let targetX = vacuum.x;
-let targetY = vacuum.y;
+// Mobil hedef
+let targetX = null;
+let targetY = null;
 
-function spawnNumber() {
-  const value = Math.floor(Math.random() * 9) + 1;
-  numbers.push({
-    x: Math.random() * (canvas.width - 20),
-    y: Math.random() * (canvas.height - 20),
-    value: value,
-    ttl: value * 60
-  });
+// Rakam spawn fonksiyonu (daha fazla rakam ve daha hızlı)
+function spawnNumbers() {
+  for(let i=0;i<3;i++){ // her spawnda 3 rakam
+    const value = Math.floor(Math.random() * 9) + 1;
+    numbers.push({
+      x: Math.random() * (canvas.width - 20),
+      y: Math.random() * (canvas.height - 20),
+      value: value,
+      ttl: value * 60
+    });
+  }
 }
-setInterval(spawnNumber, 1000);
+// 0.5 saniyede bir spawn
+setInterval(spawnNumbers, 500);
 
 function drawVacuum() {
   // Çekim alanı
@@ -67,9 +72,16 @@ function drawNumbers() {
   numbers = numbers.filter(num => num.ttl > 0);
 }
 
+// Klavye kontrolleri (WASD)
 let keys = {};
-canvas.addEventListener('keydown', e => keys[e.key] = true);
-canvas.addEventListener('keyup', e => keys[e.key] = false);
+canvas.addEventListener('keydown', e => {
+  const key = e.key.toLowerCase();
+  if(["w","a","s","d"].includes(key)) keys[key] = true;
+});
+canvas.addEventListener('keyup', e => {
+  const key = e.key.toLowerCase();
+  if(["w","a","s","d"].includes(key)) keys[key] = false;
+});
 
 // Mobil kontrol
 canvas.addEventListener('touchstart', e => {
@@ -84,23 +96,25 @@ canvas.addEventListener('touchmove', e => {
 });
 
 function update() {
-  // Klavye
-  if(keys['ArrowUp']) vacuum.y -= 5;
-  if(keys['ArrowDown']) vacuum.y += 5;
-  if(keys['ArrowLeft']) vacuum.x -= 5;
-  if(keys['ArrowRight']) vacuum.x += 5;
+  // WASD hareketi
+  if(keys["w"]) vacuum.y -= 5;
+  if(keys["s"]) vacuum.y += 5;
+  if(keys["a"]) vacuum.x -= 5;
+  if(keys["d"]) vacuum.x += 5;
 
-  // Mobil yumuşak hareket
-  const dx = targetX - vacuum.x;
-  const dy = targetY - vacuum.y;
-  vacuum.x += dx * 0.05;
-  vacuum.y += dy * 0.05;
+  // Mobil hareket
+  if(targetX !== null && targetY !== null) {
+    const dx = targetX - vacuum.x;
+    const dy = targetY - vacuum.y;
+    vacuum.x += dx * 0.05;
+    vacuum.y += dy * 0.05;
+  }
 
   // Sınırlar
   vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
   vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
 
-  // Çekim alanı etkisi
+  // Rakam çekimi
   numbers.forEach((num, i) => {
     const dxn = vacuum.x - num.x;
     const dyn = vacuum.y - num.y;
