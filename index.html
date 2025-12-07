@@ -1,182 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="UTF-8">
 <title>Vacoomy</title>
 <style>
-    body {
-        margin: 0;
-        background: #111;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100vh;
-        overflow: hidden;
-    }
-    canvas {
-        background: #202020;
-        border: 3px solid #444;
-        border-radius: 10px;
-        touch-action: none;
-    }
+  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; }
+  #gameCanvas { background: #fff; border: 2px solid #000; touch-action: none; }
+  #score { position: absolute; top: 10px; left: 10px; font-size: 20px; font-weight: bold; }
 </style>
 </head>
 <body>
-
-<canvas id="game" width="480" height="480" tabindex="1"></canvas>
-
+<div id="score">Puan: 0</div>
+<canvas id="gameCanvas" width="600" height="600"></canvas>
 <script>
-const canvas = document.getElementById("game");
-canvas.focus();
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const scoreDisplay = document.getElementById('score');
 
-const ctx = canvas.getContext("2d");
-
-const mapSize = 480;
-const sweeperSize = 80;
-
-let sweeper = {
-    x: mapSize / 2,
-    y: mapSize / 2,
-    angle: 0,
-    speed: 2.5
-};
-
-let keys = {};
+let vacuum = { x: 300, y: 300, size: 25, angle: 0 };
 let numbers = [];
 let score = 0;
-let gameTime = 120;
-let gameRunning = true;
 
-// --- Focus alınmazsa klavye çalışmaz! ---
-canvas.addEventListener("click", () => canvas.focus());
-
-// --- Klavye Kontrolleri ---
-document.addEventListener("keydown", (e) => {
-    keys[e.key] = true;
-});
-
-document.addEventListener("keyup", (e) => {
-    keys[e.key] = false;
-});
-
-// --- Mobil için yön kontrolü ---
-let touchActive = false;
-let touchX = 0;
-let touchY = 0;
-
-canvas.addEventListener("touchstart", (e) => {
-    touchActive = true;
-    const t = e.touches[0];
-    touchX = t.clientX;
-    touchY = t.clientY;
-});
-
-canvas.addEventListener("touchmove", (e) => {
-    const t = e.touches[0];
-    let dx = t.clientX - touchX;
-    let dy = t.clientY - touchY;
-    sweeper.angle = Math.atan2(dy, dx);
-    sweeper.x += Math.cos(sweeper.angle) * sweeper.speed;
-    sweeper.y += Math.sin(sweeper.angle) * sweeper.speed;
-});
-
-canvas.addEventListener("touchend", () => {
-    touchActive = false;
-});
-
-// --- Random Sayı Spawn ---
 function spawnNumber() {
-    const value = Math.floor(Math.random() * 9) + 1;
-    numbers.push({
-        x: Math.random() * (mapSize - 30),
-        y: Math.random() * (mapSize - 30),
-        value,
-        ttl: 200 + value * 20
-    });
+  const value = Math.floor(Math.random() * 9) + 1;
+  numbers.push({
+    x: Math.random() * (canvas.width - 20),
+    y: Math.random() * (canvas.height - 20),
+    value: value,
+    ttl: value * 60 // 1 saniye = 60 frame olarak varsayalım
+  });
 }
+setInterval(spawnNumber, 1000);
 
-setInterval(() => {
-    if (gameRunning) spawnNumber();
-}, 800);
-
-// --- Süpürge hareketi ---
-function updateSweeper() {
-
-    if (keys["ArrowLeft"]) sweeper.angle -= 0.07;
-    if (keys["ArrowRight"]) sweeper.angle += 0.07;
-
-    if (keys["ArrowUp"]) {
-        sweeper.x += Math.cos(sweeper.angle) * sweeper.speed;
-        sweeper.y += Math.sin(sweeper.angle) * sweeper.speed;
-    }
-
-    sweeper.x = Math.max(0, Math.min(mapSize, sweeper.x));
-    sweeper.y = Math.max(0, Math.min(mapSize, sweeper.y));
-}
-
-// --- Çizimler ---
-function drawSweeper() {
-    ctx.save();
-    ctx.translate(sweeper.x, sweeper.y);
-    ctx.rotate(sweeper.angle);
-
-    ctx.fillStyle = "#ccc";
-    ctx.fillRect(-40, -40, 80, 80);
-
-    ctx.beginPath();
-    ctx.moveTo(40, -20);
-    ctx.lineTo(40, 20);
-    ctx.lineTo(120, 0);
-    ctx.fillStyle = "rgba(0,150,255,0.25)";
-    ctx.fill();
-
-    ctx.restore();
+function drawVacuum() {
+  ctx.save();
+  ctx.translate(vacuum.x, vacuum.y);
+  ctx.rotate(vacuum.angle);
+  ctx.fillStyle = 'blue';
+  ctx.beginPath();
+  ctx.moveTo(0, -vacuum.size/2);
+  ctx.lineTo(vacuum.size/2, vacuum.size/2);
+  ctx.lineTo(-vacuum.size/2, vacuum.size/2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawNumbers() {
-    numbers.forEach((n, i) => {
-        n.ttl--;
-        if (n.ttl <= 0) numbers.splice(i, 1);
-
-        ctx.fillStyle = "#ffcc00";
-        ctx.font = "20px Arial";
-        ctx.fillText(n.value, n.x, n.y);
-
-        let dx = n.x - sweeper.x;
-        let dy = n.y - sweeper.y;
-        if (Math.sqrt(dx*dx + dy*dy) < 60) {
-            score += n.value;
-            numbers.splice(i, 1);
-        }
-    });
+  numbers.forEach(num => {
+    ctx.fillStyle = 'red';
+    ctx.font = '20px Arial';
+    ctx.fillText(num.value, num.x, num.y);
+    num.ttl--;
+  });
+  numbers = numbers.filter(num => num.ttl > 0);
 }
 
-setInterval(() => {
-    if (gameRunning && gameTime > 0) {
-        gameTime--;
-        if (gameTime === 0) gameRunning = false;
+let keys = {};
+window.addEventListener('keydown', e => keys[e.key] = true);
+window.addEventListener('keyup', e => keys[e.key] = false);
+
+function update() {
+  if(keys['ArrowUp']) { vacuum.y -= 3; vacuum.angle = -Math.PI/2; }
+  if(keys['ArrowDown']) { vacuum.y += 3; vacuum.angle = Math.PI/2; }
+  if(keys['ArrowLeft']) { vacuum.x -= 3; vacuum.angle = Math.PI; }
+  if(keys['ArrowRight']) { vacuum.x += 3; vacuum.angle = 0; }
+
+  // sınırlar
+  vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
+  vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
+
+  // çarpışma kontrolü
+  numbers.forEach((num, i) => {
+    if(Math.hypot(vacuum.x - num.x, vacuum.y - num.y) < 25) {
+      score += num.value;
+      numbers.splice(i,1);
     }
-}, 1000);
+  });
+
+  scoreDisplay.textContent = `Puan: ${score}`;
+}
 
 function loop() {
-    ctx.clearRect(0, 0, mapSize, mapSize);
-
-    if (gameRunning) updateSweeper();
-
-    drawSweeper();
-    drawNumbers();
-
-    ctx.fillStyle = "#fff";
-    ctx.font = "20px Arial";
-    ctx.fillText(`Score: ${score}`, 10, 25);
-    ctx.fillText(`Time: ${gameTime}`, 10, 50);
-
-    requestAnimationFrame(loop);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  update();
+  drawVacuum();
+  drawNumbers();
+  requestAnimationFrame(loop);
 }
-
 loop();
 </script>
-
 </body>
 </html>
