@@ -29,7 +29,12 @@ body { display: flex; justify-content: center; align-items: center; height: 100v
 // Supabase ayarları
 const SUPABASE_URL = `https://rwpzycqetqfeasveviho.supabase.co`;
 const SUPABASE_KEY = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3cHp5Y3FldHFmZWFzdmV2aWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMzEwOTYsImV4cCI6MjA4MDcwNzA5Nn0.Rj0zvPhqgfJBIcp_RA6kmRj-vLpBumz-Tu0BNRQoKmI`;
-const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+let supabase = null;
+try {
+  supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch(e) {
+  console.warn("Supabase bağlantısı başarısız, global ranking devre dışı:", e);
+}
 
 // Oyun değişkenleri
 const canvas = document.getElementById('gameCanvas');
@@ -49,14 +54,13 @@ let gameRunning = false;
 let targetX = null;
 let targetY = null;
 let spawnInterval = null;
-let loopId = null;
 let keys = {};
 
 // Start butonu
 startBtn.addEventListener('click', ()=>{
   overlay.style.display = 'none';
   canvas.style.display = 'block';
-  canvas.focus(); // focus ekledik
+  canvas.focus();
   resetGame();
   gameRunning = true;
   spawnInterval = setInterval(spawnNumbers, 500);
@@ -111,7 +115,7 @@ function drawNumbers(){
   numbers = numbers.filter(num=>num.ttl>0);
 }
 
-// Klavye event listener’ları global document’e
+// Klavye event listener’ları
 document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if(["w","a","s","d"].includes(k)) keys[k] = true;
@@ -135,13 +139,23 @@ canvas.addEventListener('touchmove', e=>{
 
 // Supabase skor fonksiyonları
 async function saveScoreGlobal(score){
-  await supabase.from('scores').insert([{ score }]);
+  if(!supabase) return; // Supabase yoksa atla
+  try {
+    await supabase.from('scores').insert([{ score }]);
+  } catch(e){
+    console.warn("Skor kaydedilemedi:", e);
+  }
 }
 
 async function showRankingGlobal(){
-  const { data, error } = await supabase.from('scores').select('score').order('score', { ascending:false }).limit(10);
-  if(error) { console.error(error); return; }
-  alert("Global Ranking:\n"+data.map((s,i)=>`${i+1}. ${s.score}`).join("\n"));
+  if(!supabase) return;
+  try {
+    const { data, error } = await supabase.from('scores').select('score').order('score', { ascending:false }).limit(10);
+    if(error) { console.error(error); return; }
+    alert("Global Ranking:\n"+data.map((s,i)=>`${i+1}. ${s.score}`).join("\n"));
+  } catch(e) {
+    console.warn("Ranking alınamadı:", e);
+  }
 }
 
 // Güncelleme
@@ -195,7 +209,7 @@ function loop(){
   update();
   drawVacuum();
   drawNumbers();
-  loopId = requestAnimationFrame(loop);
+  requestAnimationFrame(loop);
 }
 loop();
 </script>
