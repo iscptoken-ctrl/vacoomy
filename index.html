@@ -1,189 +1,167 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Vacoomy</title>
 <style>
-    body { margin:0; overflow:hidden; background:#111; }
-    #ui {
-        position:fixed;
-        top:10px; left:10px;
-        color:white;
-        font-size:24px;
-        font-family:Arial;
-        z-index:10;
+    body {
+        margin: 0;
+        background: #111;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        user-select: none;
+        overflow: hidden;
     }
-    #endScreen {
-        position:fixed;
-        top:0; left:0;
-        width:100%; height:100%;
-        background:rgba(0,0,0,0.8);
-        color:white;
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
-        text-align:center;
-        font-size:32px;
-        font-family:Arial;
-        display:none;
-    }
-    button {
-        padding:12px 24px;
-        font-size:20px;
-        margin-top:20px;
-        cursor:pointer;
+
+    canvas {
+        background: #202020;
+        border: 3px solid #444;
+        border-radius: 10px;
     }
 </style>
 </head>
 <body>
 
-<canvas id="game"></canvas>
-
-<div id="ui">
-    Skor: <span id="score">0</span><br>
-    Süre: <span id="time">120</span>
-</div>
-
-<div id="endScreen">
-    <div id="finalScore"></div>
-    <button onclick="location.reload()">Tekrar Oyna</button>
-</div>
+<canvas id="game" width="480" height="480"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
 
-const MAP_SIZE = 3000;
-let score = 0;
-let timeLeft = 120;
+const mapSize = 480;
+const sweeperSize = 80;
 
-// Oyuncu
-let player = {
-    x: MAP_SIZE/2,
-    y: MAP_SIZE/2,
-    size: 40,
-    speed: 4
+let sweeper = {
+    x: mapSize / 2,
+    y: mapSize / 2,
+    angle: 0,
+    speed: 2.2
 };
 
-// Kamera (oyuncuyu takip eder)
-let cam = { x:0, y:0 };
-
 let keys = {};
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
-
-// Rakamlar
 let numbers = [];
+let score = 0;
+let gameTime = 120;
+let gameRunning = true;
 
+// ----------------------
+// Generate Random Numbers
+// ----------------------
 function spawnNumber() {
-    const value = Math.floor(Math.random()*99)+1;
-    const life = value <= 10 ? 2000 :
-                 value <= 25 ? 2500 :
-                 value <= 50 ? 3500 :
-                 value <= 75 ? 4500 : 6000;
-
+    const value = Math.floor(Math.random() * 9) + 1;
     numbers.push({
-        x: Math.random()*MAP_SIZE,
-        y: Math.random()*MAP_SIZE,
+        x: Math.random() * (mapSize - 30),
+        y: Math.random() * (mapSize - 30),
         value,
-        life,
-        created: Date.now()
-    });
-}
-setInterval(spawnNumber, 1000);
-
-// Oyun döngüsü
-function update() {
-
-    if (timeLeft <= 0) return;
-
-    // Hareket
-    if (keys["w"] || keys["ArrowUp"])    player.y -= player.speed;
-    if (keys["s"] || keys["ArrowDown"])  player.y += player.speed;
-    if (keys["a"] || keys["ArrowLeft"])  player.x -= player.speed;
-    if (keys["d"] || keys["ArrowRight"]) player.x += player.speed;
-
-    // Kamera ortalar
-    cam.x = player.x - canvas.width/2;
-    cam.y = player.y - canvas.height/2;
-
-    // Duvar sınırları
-    player.x = Math.max(0, Math.min(MAP_SIZE, player.x));
-    player.y = Math.max(0, Math.min(MAP_SIZE, player.y));
-
-    // Rakamları güncelle
-    const now = Date.now();
-    numbers = numbers.filter(n => {
-        if (now - n.created > n.life) return false;
-
-        // Çarpışma kontrolü
-        const dx = player.x - n.x;
-        const dy = player.y - n.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < player.size) {
-            score += n.value;
-            document.getElementById("score").innerText = score;
-            return false;
-        }
-        return true;
+        ttl: 200 + value * 20
     });
 }
 
-function draw() {
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+setInterval(() => {
+    if (gameRunning) spawnNumber();
+}, 800);
 
-    // Harita arka plan grid
-    ctx.fillStyle = "#222";
-    ctx.fillRect(-cam.x, -cam.y, MAP_SIZE, MAP_SIZE);
+// ----------------------
+// Keyboard Controls
+// ----------------------
+document.addEventListener("keydown", (e) => keys[e.key] = true);
+document.addEventListener("keyup", (e) => keys[e.key] = false);
 
-    ctx.strokeStyle = "#333";
-    for (let i=0; i<MAP_SIZE; i+=100) {
-        ctx.beginPath();
-        ctx.moveTo(i - cam.x, 0 - cam.y);
-        ctx.lineTo(i - cam.x, MAP_SIZE - cam.y);
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(0 - cam.x, i - cam.y);
-        ctx.lineTo(MAP_SIZE - cam.x, i - cam.y);
-        ctx.stroke();
+// ----------------------
+// Update Sweeper
+// ----------------------
+function updateSweeper() {
+    if (keys["ArrowLeft"]) sweeper.angle -= 0.07;
+    if (keys["ArrowRight"]) sweeper.angle += 0.07;
+    if (keys["ArrowUp"]) {
+        sweeper.x += Math.cos(sweeper.angle) * sweeper.speed;
+        sweeper.y += Math.sin(sweeper.angle) * sweeper.speed;
     }
 
-    // Rakamları çiz
-    numbers.forEach(n => {
-        ctx.fillStyle = `hsl(${120 - (n.value*1.2)}, 80%, 60%)`;
-        ctx.font = "24px Arial";
-        ctx.fillText(n.value, n.x - cam.x, n.y - cam.y);
-    });
+    // Clamp to borders
+    sweeper.x = Math.max(0, Math.min(mapSize, sweeper.x));
+    sweeper.y = Math.max(0, Math.min(mapSize, sweeper.y));
+}
 
-    // Oyuncu (süpürge)
-    ctx.fillStyle = "cyan";
+// ----------------------
+// Draw Sweeper
+// ----------------------
+function drawSweeper() {
+    ctx.save();
+    ctx.translate(sweeper.x, sweeper.y);
+    ctx.rotate(sweeper.angle);
+
+    // Main Body
+    ctx.fillStyle = "#ccc";
+    ctx.fillRect(-40, -40, 80, 80);
+
+    // Triangle Suction Area
     ctx.beginPath();
-    ctx.arc(player.x - cam.x, player.y - cam.y, player.size, 0, Math.PI*2);
+    ctx.moveTo(40, -20);
+    ctx.lineTo(40, 20);
+    ctx.lineTo(120, 0);
+    ctx.fillStyle = "rgba(0, 150, 255, 0.25)";
     ctx.fill();
+
+    ctx.restore();
 }
 
-function loop() {
-    update();
-    draw();
-    requestAnimationFrame(loop);
-}
-loop();
+// ----------------------
+// Draw Numbers
+// ----------------------
+function drawNumbers() {
+    numbers.forEach((n, i) => {
+        n.ttl--;
+        if (n.ttl <= 0) numbers.splice(i, 1);
 
-// Sayaç
+        ctx.fillStyle = "#ffcc00";
+        ctx.font = "20px Arial";
+        ctx.fillText(n.value, n.x, n.y);
+
+        // Collision (simple rectangle check)
+        const dx = n.x - sweeper.x;
+        const dy = n.y - sweeper.y;
+        if (Math.sqrt(dx*dx + dy*dy) < 60) {
+            score += n.value;
+            numbers.splice(i, 1);
+        }
+    });
+}
+
+// ----------------------
+// Game Timer
+// ----------------------
 setInterval(() => {
-    if (timeLeft > 0) {
-        timeLeft--;
-        document.getElementById("time").innerText = timeLeft;
-    } else {
-        document.getElementById("endScreen").style.display = "flex";
-        document.getElementById("finalScore").innerText = "Skorun: " + score;
+    if (gameRunning && gameTime > 0) {
+        gameTime--;
+        if (gameTime === 0) gameRunning = false;
     }
 }, 1000);
 
+// ----------------------
+// Game Loop
+// ----------------------
+function loop() {
+    ctx.clearRect(0, 0, mapSize, mapSize);
+
+    if (gameRunning) updateSweeper();
+
+    drawSweeper();
+    drawNumbers();
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "20px Arial";
+    ctx.fillText(`Score: ${score}`, 10, 25);
+    ctx.fillText(`Time: ${gameTime}`, 10, 50);
+
+    requestAnimationFrame(loop);
+}
+
+loop();
 </script>
+
 </body>
 </html>
