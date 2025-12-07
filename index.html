@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <title>Vacoomy</title>
 <style>
-  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; position: relative; }
+  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; position: relative; margin:0; }
   #gameCanvas { background: #fff; border: 2px solid #000; touch-action: none; }
   #score, #timer { position: absolute; font-size: 20px; font-weight: bold; }
   #score { top: 10px; left: 10px; }
@@ -23,11 +23,16 @@ canvas.focus();
 const scoreDisplay = document.getElementById('score');
 const timerDisplay = document.getElementById('timer');
 
-let vacuum = { x: 300, y: 300, size: 40 };
+let vacuum = { x: 300, y: 300, size: 50, img: new Image() };
+vacuum.img.src = 'vacuum.png'; // Süpürge görseli
 let numbers = [];
 let score = 0;
 let totalTime = 120;
 let elapsedTime = 0;
+
+// Mobil hedef
+let targetX = vacuum.x;
+let targetY = vacuum.y;
 
 function spawnNumber() {
   const value = Math.floor(Math.random() * 9) + 1;
@@ -47,9 +52,8 @@ function drawVacuum() {
   ctx.arc(vacuum.x, vacuum.y, 50, 0, Math.PI*2);
   ctx.fill();
 
-  // Süpürge (kare)
-  ctx.fillStyle = 'blue';
-  ctx.fillRect(vacuum.x - vacuum.size/2, vacuum.y - vacuum.size/2, vacuum.size, vacuum.size);
+  // Süpürge görseli
+  ctx.drawImage(vacuum.img, vacuum.x - vacuum.size/2, vacuum.y - vacuum.size/2, vacuum.size, vacuum.size);
 }
 
 function drawNumbers() {
@@ -66,23 +70,44 @@ let keys = {};
 canvas.addEventListener('keydown', e => keys[e.key] = true);
 canvas.addEventListener('keyup', e => keys[e.key] = false);
 
+// Mobil dokunma
+canvas.addEventListener('touchstart', e => {
+  const rect = canvas.getBoundingClientRect();
+  targetX = e.touches[0].clientX - rect.left;
+  targetY = e.touches[0].clientY - rect.top;
+});
+canvas.addEventListener('touchmove', e => {
+  const rect = canvas.getBoundingClientRect();
+  targetX = e.touches[0].clientX - rect.left;
+  targetY = e.touches[0].clientY - rect.top;
+});
+
 function update() {
+  // Klavye hareketi
   if(keys['ArrowUp']) vacuum.y -= 5;
   if(keys['ArrowDown']) vacuum.y += 5;
   if(keys['ArrowLeft']) vacuum.x -= 5;
   if(keys['ArrowRight']) vacuum.x += 5;
 
+  // Mobil hareket (basit yumuşak hareket)
+  const dx = targetX - vacuum.x;
+  const dy = targetY - vacuum.y;
+  vacuum.x += dx * 0.05;
+  vacuum.y += dy * 0.05;
+
+  // Sınırlar
   vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
   vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
 
+  // Rakamları çekim alanına çekme
   numbers.forEach((num, i) => {
-    const dx = vacuum.x - num.x;
-    const dy = vacuum.y - num.y;
-    const dist = Math.hypot(dx, dy);
+    const dxn = vacuum.x - num.x;
+    const dyn = vacuum.y - num.y;
+    const dist = Math.hypot(dxn, dyn);
 
     if(dist < 50) {
-      num.x += dx * 0.05;
-      num.y += dy * 0.05;
+      num.x += dxn * 0.05;
+      num.y += dyn * 0.05;
     }
 
     if(dist < 25) {
@@ -93,6 +118,7 @@ function update() {
 
   scoreDisplay.textContent = `Puan: ${score}`;
 
+  // Timer
   elapsedTime++;
   const remaining = Math.max(0, totalTime - Math.floor(elapsedTime / 60));
   const minutes = String(Math.floor(remaining / 60)).padStart(2,'0');
