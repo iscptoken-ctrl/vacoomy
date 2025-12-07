@@ -4,13 +4,13 @@
 <meta charset="UTF-8">
 <title>Vacoomy</title>
 <style>
-  body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; position: relative; margin:0; font-family: Arial, sans-serif; }
-  #gameCanvas { background: #fff; border: 2px solid #000; touch-action: none; display: none; }
-  #score, #timer { position: absolute; font-size: 20px; font-weight: bold; }
-  #score { top: 10px; left: 10px; }
-  #timer { top: 10px; right: 10px; }
-  #overlay { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);color:white;display:flex;justify-content:center;align-items:center;flex-direction:column; font-size:24px; }
-  #overlay button { margin-top:20px; font-size:20px; padding:10px 20px; cursor:pointer; }
+body { display: flex; justify-content: center; align-items: center; height: 100vh; background: #eee; position: relative; margin:0; font-family: Arial, sans-serif; }
+#gameCanvas { background: #fff; border: 2px solid #000; touch-action: none; display: none; }
+#score, #timer { position: absolute; font-size: 20px; font-weight: bold; }
+#score { top: 10px; left: 10px; }
+#timer { top: 10px; right: 10px; }
+#overlay { position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);color:white;display:flex;justify-content:center;align-items:center;flex-direction:column; font-size:24px; }
+#overlay button { margin-top:20px; font-size:20px; padding:10px 20px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -24,13 +24,11 @@
   <button id="startBtn">Start</button>
 </div>
 
-<!-- Supabase JS -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-
 <script>
-// Supabase ayarları
-const SUPABASE_URL = "https://rwpzycqetqfeasveviho.supabase.co"; // kendi URL'n
-const SUPABASE_KEY = "YOUR_ANON_KEY"; // kendi anon key'n
+// Supabase ayarları (senin verdiğin bilgilerle)
+const SUPABASE_URL = `https://rwpzycqetqfeasveviho.supabase.co`;
+const SUPABASE_KEY = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3cHp5Y3FldHFmZWFzdmV2aWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMzEwOTYsImV4cCI6MjA4MDcwNzA5Nn0.Rj0zvPhqgfJBIcp_RA6kmRj-vLpBumz-Tu0BNRQoKmI`;
 const supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Oyun değişkenleri
