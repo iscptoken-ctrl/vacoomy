@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Vacoomy</title>
+<style>
+    body { margin:0; overflow:hidden; background:#111; }
+    #ui {
+        position:fixed;
+        top:10px; left:10px;
+        color:white;
+        font-size:24px;
+        font-family:Arial;
+        z-index:10;
+    }
+    #endScreen {
+        position:fixed;
+        top:0; left:0;
+        width:100%; height:100%;
+        background:rgba(0,0,0,0.8);
+        color:white;
+        display:flex;
+        flex-direction:column;
+        justify-content:center;
+        align-items:center;
+        text-align:center;
+        font-size:32px;
+        font-family:Arial;
+        display:none;
+    }
+    button {
+        padding:12px 24px;
+        font-size:20px;
+        margin-top:20px;
+        cursor:pointer;
+    }
+</style>
+</head>
+<body>
+
+<canvas id="game"></canvas>
+
+<div id="ui">
+    Skor: <span id="score">0</span><br>
+    Süre: <span id="time">120</span>
+</div>
+
+<div id="endScreen">
+    <div id="finalScore"></div>
+    <button onclick="location.reload()">Tekrar Oyna</button>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const MAP_SIZE = 3000;
+let score = 0;
+let timeLeft = 120;
+
+// Oyuncu
+let player = {
+    x: MAP_SIZE/2,
+    y: MAP_SIZE/2,
+    size: 40,
+    speed: 4
+};
+
+// Kamera (oyuncuyu takip eder)
+let cam = { x:0, y:0 };
+
+let keys = {};
+document.addEventListener("keydown", e => keys[e.key] = true);
+document.addEventListener("keyup", e => keys[e.key] = false);
+
+// Rakamlar
+let numbers = [];
+
+function spawnNumber() {
+    const value = Math.floor(Math.random()*99)+1;
+    const life = value <= 10 ? 2000 :
+                 value <= 25 ? 2500 :
+                 value <= 50 ? 3500 :
+                 value <= 75 ? 4500 : 6000;
+
+    numbers.push({
+        x: Math.random()*MAP_SIZE,
+        y: Math.random()*MAP_SIZE,
+        value,
+        life,
+        created: Date.now()
+    });
+}
+setInterval(spawnNumber, 1000);
+
+// Oyun döngüsü
+function update() {
+
+    if (timeLeft <= 0) return;
+
+    // Hareket
+    if (keys["w"] || keys["ArrowUp"])    player.y -= player.speed;
+    if (keys["s"] || keys["ArrowDown"])  player.y += player.speed;
+    if (keys["a"] || keys["ArrowLeft"])  player.x -= player.speed;
+    if (keys["d"] || keys["ArrowRight"]) player.x += player.speed;
+
+    // Kamera ortalar
+    cam.x = player.x - canvas.width/2;
+    cam.y = player.y - canvas.height/2;
+
+    // Duvar sınırları
+    player.x = Math.max(0, Math.min(MAP_SIZE, player.x));
+    player.y = Math.max(0, Math.min(MAP_SIZE, player.y));
+
+    // Rakamları güncelle
+    const now = Date.now();
+    numbers = numbers.filter(n => {
+        if (now - n.created > n.life) return false;
+
+        // Çarpışma kontrolü
+        const dx = player.x - n.x;
+        const dy = player.y - n.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < player.size) {
+            score += n.value;
+            document.getElementById("score").innerText = score;
+            return false;
+        }
+        return true;
+    });
+}
+
+function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // Harita arka plan grid
+    ctx.fillStyle = "#222";
+    ctx.fillRect(-cam.x, -cam.y, MAP_SIZE, MAP_SIZE);
+
+    ctx.strokeStyle = "#333";
+    for (let i=0; i<MAP_SIZE; i+=100) {
+        ctx.beginPath();
+        ctx.moveTo(i - cam.x, 0 - cam.y);
+        ctx.lineTo(i - cam.x, MAP_SIZE - cam.y);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0 - cam.x, i - cam.y);
+        ctx.lineTo(MAP_SIZE - cam.x, i - cam.y);
+        ctx.stroke();
+    }
+
+    // Rakamları çiz
+    numbers.forEach(n => {
+        ctx.fillStyle = `hsl(${120 - (n.value*1.2)}, 80%, 60%)`;
+        ctx.font = "24px Arial";
+        ctx.fillText(n.value, n.x - cam.x, n.y - cam.y);
+    });
+
+    // Oyuncu (süpürge)
+    ctx.fillStyle = "cyan";
+    ctx.beginPath();
+    ctx.arc(player.x - cam.x, player.y - cam.y, player.size, 0, Math.PI*2);
+    ctx.fill();
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+loop();
+
+// Sayaç
+setInterval(() => {
+    if (timeLeft > 0) {
+        timeLeft--;
+        document.getElementById("time").innerText = timeLeft;
+    } else {
+        document.getElementById("endScreen").style.display = "flex";
+        document.getElementById("finalScore").innerText = "Skorun: " + score;
+    }
+}, 1000);
+
+</script>
+</body>
+</html>
