@@ -23,8 +23,7 @@ canvas.focus();
 const scoreDisplay = document.getElementById('score');
 const timerDisplay = document.getElementById('timer');
 
-let vacuum = { x: 300, y: 300, size: 50, img: new Image() };
-vacuum.img.src = 'sweep.png'; // Süpürge görseli
+let vacuum = { x: 300, y: 300, size: 40 };
 let numbers = [];
 let score = 0;
 let totalTime = 120;
@@ -48,8 +47,9 @@ function drawVacuum() {
   ctx.arc(vacuum.x, vacuum.y, 50, 0, Math.PI*2);
   ctx.fill();
 
-  // Süpürge görseli
-  ctx.drawImage(vacuum.img, vacuum.x - vacuum.size/2, vacuum.y - vacuum.size/2, vacuum.size, vacuum.size);
+  // Süpürge (kare)
+  ctx.fillStyle = 'blue';
+  ctx.fillRect(vacuum.x - vacuum.size/2, vacuum.y - vacuum.size/2, vacuum.size, vacuum.size);
 }
 
 function drawNumbers() {
@@ -80,12 +80,12 @@ function update() {
     const dy = vacuum.y - num.y;
     const dist = Math.hypot(dx, dy);
 
-    if(dist < 50) { // Çekim alanına girdi
-      num.x += dx * 0.05; // Yavaşça süpürgeye doğru
+    if(dist < 50) {
+      num.x += dx * 0.05;
       num.y += dy * 0.05;
     }
 
-    if(dist < 20) { // Toplama mesafesi
+    if(dist < 25) {
       score += num.value;
       numbers.splice(i,1);
     }
@@ -93,7 +93,6 @@ function update() {
 
   scoreDisplay.textContent = `Puan: ${score}`;
 
-  // Timer güncelle
   elapsedTime++;
   const remaining = Math.max(0, totalTime - Math.floor(elapsedTime / 60));
   const minutes = String(Math.floor(remaining / 60)).padStart(2,'0');
