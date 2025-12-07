@@ -23,14 +23,12 @@ canvas.focus();
 const scoreDisplay = document.getElementById('score');
 const timerDisplay = document.getElementById('timer');
 
-let vacuum = { x: 300, y: 300, size: 50, img: new Image() };
-vacuum.img.src = 'vacuum.png'; // Süpürge görseli
+let vacuum = { x: 300, y: 300, size: 40, emoji: "🧹" };
 let numbers = [];
 let score = 0;
 let totalTime = 120;
 let elapsedTime = 0;
 
-// Mobil hedef
 let targetX = vacuum.x;
 let targetY = vacuum.y;
 
@@ -52,8 +50,11 @@ function drawVacuum() {
   ctx.arc(vacuum.x, vacuum.y, 50, 0, Math.PI*2);
   ctx.fill();
 
-  // Süpürge görseli
-  ctx.drawImage(vacuum.img, vacuum.x - vacuum.size/2, vacuum.y - vacuum.size/2, vacuum.size, vacuum.size);
+  // Emoji süpürge
+  ctx.font = `${vacuum.size}px Arial`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(vacuum.emoji, vacuum.x, vacuum.y);
 }
 
 function drawNumbers() {
@@ -70,7 +71,7 @@ let keys = {};
 canvas.addEventListener('keydown', e => keys[e.key] = true);
 canvas.addEventListener('keyup', e => keys[e.key] = false);
 
-// Mobil dokunma
+// Mobil kontrol
 canvas.addEventListener('touchstart', e => {
   const rect = canvas.getBoundingClientRect();
   targetX = e.touches[0].clientX - rect.left;
@@ -83,13 +84,13 @@ canvas.addEventListener('touchmove', e => {
 });
 
 function update() {
-  // Klavye hareketi
+  // Klavye
   if(keys['ArrowUp']) vacuum.y -= 5;
   if(keys['ArrowDown']) vacuum.y += 5;
   if(keys['ArrowLeft']) vacuum.x -= 5;
   if(keys['ArrowRight']) vacuum.x += 5;
 
-  // Mobil hareket (basit yumuşak hareket)
+  // Mobil yumuşak hareket
   const dx = targetX - vacuum.x;
   const dy = targetY - vacuum.y;
   vacuum.x += dx * 0.05;
@@ -99,7 +100,7 @@ function update() {
   vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
   vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
 
-  // Rakamları çekim alanına çekme
+  // Çekim alanı etkisi
   numbers.forEach((num, i) => {
     const dxn = vacuum.x - num.x;
     const dyn = vacuum.y - num.y;
