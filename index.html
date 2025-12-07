@@ -12,23 +12,24 @@
         justify-content: center;
         align-items: center;
         height: 100vh;
-        user-select: none;
         overflow: hidden;
     }
-
     canvas {
         background: #202020;
         border: 3px solid #444;
         border-radius: 10px;
+        touch-action: none;
     }
 </style>
 </head>
 <body>
 
-<canvas id="game" width="480" height="480"></canvas>
+<canvas id="game" width="480" height="480" tabindex="1"></canvas>
 
 <script>
 const canvas = document.getElementById("game");
+canvas.focus();
+
 const ctx = canvas.getContext("2d");
 
 const mapSize = 480;
@@ -38,7 +39,7 @@ let sweeper = {
     x: mapSize / 2,
     y: mapSize / 2,
     angle: 0,
-    speed: 2.2
+    speed: 2.5
 };
 
 let keys = {};
@@ -47,9 +48,44 @@ let score = 0;
 let gameTime = 120;
 let gameRunning = true;
 
-// ----------------------
-// Generate Random Numbers
-// ----------------------
+// --- Focus alınmazsa klavye çalışmaz! ---
+canvas.addEventListener("click", () => canvas.focus());
+
+// --- Klavye Kontrolleri ---
+document.addEventListener("keydown", (e) => {
+    keys[e.key] = true;
+});
+
+document.addEventListener("keyup", (e) => {
+    keys[e.key] = false;
+});
+
+// --- Mobil için yön kontrolü ---
+let touchActive = false;
+let touchX = 0;
+let touchY = 0;
+
+canvas.addEventListener("touchstart", (e) => {
+    touchActive = true;
+    const t = e.touches[0];
+    touchX = t.clientX;
+    touchY = t.clientY;
+});
+
+canvas.addEventListener("touchmove", (e) => {
+    const t = e.touches[0];
+    let dx = t.clientX - touchX;
+    let dy = t.clientY - touchY;
+    sweeper.angle = Math.atan2(dy, dx);
+    sweeper.x += Math.cos(sweeper.angle) * sweeper.speed;
+    sweeper.y += Math.sin(sweeper.angle) * sweeper.speed;
+});
+
+canvas.addEventListener("touchend", () => {
+    touchActive = false;
+});
+
+// --- Random Sayı Spawn ---
 function spawnNumber() {
     const value = Math.floor(Math.random() * 9) + 1;
     numbers.push({
@@ -64,54 +100,40 @@ setInterval(() => {
     if (gameRunning) spawnNumber();
 }, 800);
 
-// ----------------------
-// Keyboard Controls
-// ----------------------
-document.addEventListener("keydown", (e) => keys[e.key] = true);
-document.addEventListener("keyup", (e) => keys[e.key] = false);
-
-// ----------------------
-// Update Sweeper
-// ----------------------
+// --- Süpürge hareketi ---
 function updateSweeper() {
+
     if (keys["ArrowLeft"]) sweeper.angle -= 0.07;
     if (keys["ArrowRight"]) sweeper.angle += 0.07;
+
     if (keys["ArrowUp"]) {
         sweeper.x += Math.cos(sweeper.angle) * sweeper.speed;
         sweeper.y += Math.sin(sweeper.angle) * sweeper.speed;
     }
 
-    // Clamp to borders
     sweeper.x = Math.max(0, Math.min(mapSize, sweeper.x));
     sweeper.y = Math.max(0, Math.min(mapSize, sweeper.y));
 }
 
-// ----------------------
-// Draw Sweeper
-// ----------------------
+// --- Çizimler ---
 function drawSweeper() {
     ctx.save();
     ctx.translate(sweeper.x, sweeper.y);
     ctx.rotate(sweeper.angle);
 
-    // Main Body
     ctx.fillStyle = "#ccc";
     ctx.fillRect(-40, -40, 80, 80);
 
-    // Triangle Suction Area
     ctx.beginPath();
     ctx.moveTo(40, -20);
     ctx.lineTo(40, 20);
     ctx.lineTo(120, 0);
-    ctx.fillStyle = "rgba(0, 150, 255, 0.25)";
+    ctx.fillStyle = "rgba(0,150,255,0.25)";
     ctx.fill();
 
     ctx.restore();
 }
 
-// ----------------------
-// Draw Numbers
-// ----------------------
 function drawNumbers() {
     numbers.forEach((n, i) => {
         n.ttl--;
@@ -121,9 +143,8 @@ function drawNumbers() {
         ctx.font = "20px Arial";
         ctx.fillText(n.value, n.x, n.y);
 
-        // Collision (simple rectangle check)
-        const dx = n.x - sweeper.x;
-        const dy = n.y - sweeper.y;
+        let dx = n.x - sweeper.x;
+        let dy = n.y - sweeper.y;
         if (Math.sqrt(dx*dx + dy*dy) < 60) {
             score += n.value;
             numbers.splice(i, 1);
@@ -131,9 +152,6 @@ function drawNumbers() {
     });
 }
 
-// ----------------------
-// Game Timer
-// ----------------------
 setInterval(() => {
     if (gameRunning && gameTime > 0) {
         gameTime--;
@@ -141,9 +159,6 @@ setInterval(() => {
     }
 }, 1000);
 
-// ----------------------
-// Game Loop
-// ----------------------
 function loop() {
     ctx.clearRect(0, 0, mapSize, mapSize);
 
