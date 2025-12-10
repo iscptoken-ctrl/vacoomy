@@ -5,490 +5,367 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Vacoomy — Global</title>
 <style>
-  :root{--bg:#f1f5f9;--panel:#ffffff;--accent:#2563eb;--danger:#ef4444;}
-  html,body{height:100%;margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:#111;}
-  .wrap{height:100%;display:flex;align-items:center;justify-content:center;}
-  #ui { position: absolute; top: 12px; left: 12px; font-weight:700; }
-  #timer { position:absolute; top:12px; right:12px; font-weight:700; }
-  canvas { background:var(--panel); border:2px solid #00000022; box-shadow:0 6px 20px rgba(2,6,23,0.08); touch-action:none; display:none; }
-  #overlay { position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(2,6,23,0.65); }
-  .card { width:360px; max-width:90%; background:white; border-radius:12px; padding:18px; text-align:center; box-shadow:0 8px 30px rgba(2,6,23,0.25); }
-  .card h1{margin:6px 0 8px;font-size:22px;}
-  .card p{margin:0 0 12px;color:#374151;}
-  input[type="text"]{width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:16px;margin-top:8px;}
-  button{background:var(--accent);color:white;border:0;padding:10px 14px;border-radius:8px;font-weight:700;cursor:pointer;}
-  button.secondary{background:#e5e7eb;color:#111;margin-left:8px;}
-  #rankingList{ text-align:left; margin-top:10px; max-height:200px; overflow:auto; border-top:1px dashed #eee; padding-top:10px; }
-  .rank-item{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #fafafa;font-weight:600;color:#111;}
-  .small{font-size:13px;color:#6b7280;font-weight:500;}
-  #levelBadge{position:absolute; bottom:14px; left:14px; background:#fff; padding:6px 10px; border-radius:10px; box-shadow:0 6px 18px rgba(2,6,23,0.08); font-weight:700;}
-  #scoreBadge{position:absolute; bottom:14px; right:14px; background:#fff; padding:6px 10px; border-radius:10px; box-shadow:0 6px 18px rgba(2,6,23,0.08); font-weight:700;}
-  /* mobile friendly */
-  @media (max-width:600px){ .card{width:92%;padding:14px;} canvas{width:92vw;height:92vw;} }
+  :root{--bg:#f1f5f9;--panel:#ffffff;--accent:#0b5cff}
+  html,body{height:100%;margin:0;font-family:Inter,Arial,Helvetica,sans-serif;background:var(--bg);color:#111}
+  .center{display:flex;align-items:center;justify-content:center}
+  #app{height:100vh;display:flex;align-items:center;justify-content:center}
+  #ui{
+    position: absolute; top:12px; left:12px; right:12px; display:flex; justify-content:space-between; gap:12px; z-index:30;
+  }
+  .badge{background:var(--panel);padding:8px 12px;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);font-weight:600}
+  #overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:50}
+  #panel{background:var(--panel);padding:22px;border-radius:12px;max-width:420px;width:92%;text-align:center}
+  #panel h1{margin:0 0 8px;font-size:22px}
+  #panel p{margin:0 0 14px;color:#444}
+  button{background:var(--accent);color:white;border:0;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer}
+  button.secondary{background:#e6eefc;color:#0b5cff}
+  input[type=text]{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;margin-top:8px;font-size:16px}
+  #gameCanvas{background:white;border-radius:8px;box-shadow:0 8px 30px rgba(2,6,23,.08);touch-action:none}
+  #rankingBox{position:absolute;bottom:12px;left:12px;background:var(--panel);padding:10px;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.08);z-index:20;max-width:320px}
+  .small{font-size:13px;color:#555}
+  #levelBadge{display:inline-block;padding:6px 10px;border-radius:999px;background:#fff8e6;color:#b36e00;font-weight:700;margin-left:8px}
+  @media(max-width:720px){ #panel{max-width:92%} canvas{width:92vw;height:92vw} }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <canvas id="gameCanvas" width="600" height="600" tabindex="0"></canvas>
-  <div id="ui"><div id="scoreDisplay">Score: 0</div></div>
-  <div id="timer"><div id="timeDisplay">02:00</div></div>
-  <div id="levelBadge">Level: 1</div>
-  <div id="scoreBadge">Suction: 50</div>
-</div>
-
-<!-- Overlay / Start / Name / Ranking -->
-<div id="overlay">
-  <div class="card" id="startCard" role="dialog" aria-modal="true">
-    <h1>Vacoomy</h1>
-    <p class="small">Collect numbers within 2 minutes. Move with WASD or touch. Higher score appears in the global ranking.</p>
-
-    <label style="display:block;text-align:left;font-weight:700;margin-top:8px;">Enter your name</label>
-    <input id="playerName" type="text" maxlength="20" placeholder="Player" />
-
-    <div style="margin-top:12px;display:flex;justify-content:center;">
-      <button id="startBtn">Start</button>
-      <button id="showRankingBtn" class="secondary">Show Global Ranking</button>
-    </div>
-
-    <div id="rankingList" style="display:none;">
-      <!-- ranking items injected here -->
-    </div>
-
-    <p style="margin-top:12px;" class="small">Note: Level is local-only and resets each game.</p>
+<div id="ui">
+  <div class="badge" id="scoreBadge">Score: 0</div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="badge small" id="timerBadge">02:00</div>
+    <div class="badge small">WASD / Touch</div>
   </div>
 </div>
 
-<!-- Supabase client -->
+<div id="rankingBox" style="display:none">
+  <div style="font-weight:800">Global ranking</div>
+  <div id="rankingList" class="small" style="margin-top:6px;min-width:180px"></div>
+</div>
+
+<div id="app" class="center">
+  <canvas id="gameCanvas" width="600" height="600" tabindex="0" style="display:none"></canvas>
+</div>
+
+<!-- overlay (start & name) -->
+<div id="overlay" class="center">
+  <div id="panel">
+    <h1>Vacoomy</h1>
+    <p>Collect numbers for 2 minutes. Increase level to enlarge your suction radius!</p>
+    <div style="text-align:left;margin-bottom:10px">
+      <label class="small">Player name</label>
+      <input id="nameInput" type="text" placeholder="Enter name (shown in ranking)" maxlength="20" />
+    </div>
+    <div style="display:flex;gap:10px;justify-content:center">
+      <button id="startBtn">Start</button>
+      <button id="showRankingBtn" class="secondary">Show Global Ranking</button>
+    </div>
+    <p class="small" style="margin-top:12px;color:#666">Note: Level ups are temporary — they reset when you reload.</p>
+  </div>
+</div>
+
+<!-- Supabase lib -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
 <script>
-/* ================== Supabase config (your credentials) ================== */
+/* ==========================
+   CONFIG: replace if needed
+   ========================== */
+
+// Supabase info (you already provided)
 const SUPABASE_URL = `https://rwpzycqetqfeasveviho.supabase.co`;
 const SUPABASE_KEY = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3cHp5Y3FldHFmZWFzdmV2aWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMzEwOTYsImV4cCI6MjA4MDcwNzA5Nn0.Rj0zvPhqgfJBIcp_RA6kmRj-vLpBumz-Tu0BNRQoKmI`;
-let supabase = null;
-try {
-  supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log("Supabase client initialized");
-} catch(e){ console.warn("Supabase init failed", e); supabase = null; }
 
-/* ================ Game variables ================ */
+// init supabase safely
+let supabase = null;
+try { supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY); }
+catch(e){ console.warn("Supabase init failed", e); supabase = null; }
+
+/* ==========================
+   GAME STATE
+   ========================== */
+
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const scoreDisplay = document.getElementById('scoreDisplay');
-const timeDisplay = document.getElementById('timeDisplay');
-const levelBadge = document.getElementById('levelBadge');
-const suctionBadge = document.getElementById('scoreBadge');
-
 const overlay = document.getElementById('overlay');
-const startCard = document.getElementById('startCard');
 const startBtn = document.getElementById('startBtn');
 const showRankingBtn = document.getElementById('showRankingBtn');
+const nameInput = document.getElementById('nameInput');
+const scoreBadge = document.getElementById('scoreBadge');
+const timerBadge = document.getElementById('timerBadge');
+const rankingBox = document.getElementById('rankingBox');
 const rankingList = document.getElementById('rankingList');
-const playerNameInput = document.getElementById('playerName');
 
-let vacuum = { x: 300, y: 300, size: 44, emoji: "🤖", suctionRadius: 50 };
+let playerName = '';
+let vacuum = { x: 300, y: 300, size: 40, emoji: "🤖", level: 1, suction: 60 };
 let numbers = [];
 let score = 0;
 let totalTime = 120; // seconds
-let elapsedFrames = 0; // using frames ~60fps
-let spawnInterval = null;
+let remainingTime = totalTime;
 let gameRunning = false;
-let targetX = null, targetY = null;
+let spawnInterval = null;
 let keys = {};
-let level = 1;
-let lastScoreForLevel = 0;
+let target = null;
+let frameCount = 0;
 
-/* ---- settings ---- */
-const FRAMES_PER_SEC = 60;
-const SPAWN_EVERY_MS = 500; // spawn burst every 0.5s
-const SPAWN_COUNT = 3;
-const LEVEL_STEP = 50; // every 50 score -> level up
-const SUCTION_BASE = 50;
-const SUCTION_PER_LEVEL = 8;
+/* ===============
+   HELPERS
+   =============== */
 
-/* Ensure canvas focus for keyboard */
-canvas.setAttribute('tabindex','0');
+function rand(min,max){ return Math.random()*(max-min)+min; }
 
-/* ========== helper functions =========== */
-function formatTime(sec){
-  const m = String(Math.floor(sec/60)).padStart(2,'0');
-  const s = String(sec%60).padStart(2,'0');
-  return `${m}:${s}`;
+function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+
+/* ===============
+   UI / Ranking
+   =============== */
+
+async function fetchGlobalRankingAndShow(){
+  if(!supabase) { alert("Global ranking not available (no backend)."); return; }
+  try{
+    const { data, error } = await supabase
+      .from('scores')
+      .select('player,score,created_at')
+      .order('score',{ascending:false})
+      .limit(10);
+    if(error){ console.error(error); alert("Failed to fetch ranking."); return; }
+    if(!data || data.length===0){ rankingList.innerText = "No scores yet."; rankingBox.style.display='block'; return; }
+    rankingList.innerHTML = data.map((r,i)=>`${i+1}. ${escapeHtml(r.player || "anon")} — ${r.score}`).join('<br>');
+    rankingBox.style.display = 'block';
+  }catch(e){
+    console.error(e);
+    alert("Failed to fetch ranking.");
+  }
 }
 
-/* ========== spawning ========== */
-function spawnNumbers(){
-  if(!gameRunning) return;
-  for(let i=0;i<SPAWN_COUNT;i++){
-    const value = Math.floor(Math.random()*9)+1;
+function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+async function saveScoreToGlobal(player, scoreVal){
+  if(!supabase) return;
+  try{
+    // write player & score
+    await supabase.from('scores').insert([{ player: player || 'anon', score: scoreVal }]);
+  }catch(e){
+    console.warn("Could not save score", e);
+  }
+}
+
+/* ===============
+   SPAWN / LOGIC
+   =============== */
+
+function spawnNumbersBatch(n=3){
+  for(let i=0;i<n;i++){
+    const v = Math.floor(rand(1,10));
     numbers.push({
-      x: Math.random()*(canvas.width-30)+15,
-      y: Math.random()*(canvas.height-30)+15,
-      value,
-      ttl: value * FRAMES_PER_SEC // live frames
+      id: Math.random().toString(36).slice(2),
+      x: rand(20, canvas.width-20),
+      y: rand(20, canvas.height-20),
+      value: v,
+      ttl: Math.max(60, v * 60) // frames
     });
   }
 }
 
-/* ========== draw functions ========== */
-function drawVacuum(){
-  // suction area (visible + pulsing)
-  const t = performance.now() / 500;
-  const pulse = 1 + Math.sin(t) * 0.04;
-  const radius = vacuum.suctionRadius * pulse;
-
-  // soft gradient circle for suction
-  const g = ctx.createRadialGradient(vacuum.x, vacuum.y, radius*0.2, vacuum.x, vacuum.y, radius);
-  g.addColorStop(0, 'rgba(37,99,235,0.12)');
-  g.addColorStop(0.8, 'rgba(37,99,235,0.06)');
-  g.addColorStop(1, 'rgba(37,99,235,0.02)');
-  ctx.fillStyle = g;
-  ctx.beginPath();
-  ctx.arc(vacuum.x, vacuum.y, radius, 0, Math.PI*2);
-  ctx.fill();
-
-  // clear ring stroke
-  ctx.beginPath();
-  ctx.arc(vacuum.x, vacuum.y, radius, 0, Math.PI*2);
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(37,99,235,0.25)';
-  ctx.stroke();
-
-  // robot emoji center
-  ctx.font = `${vacuum.size}px serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(vacuum.emoji, vacuum.x, vacuum.y);
+function startGame(){
+  // prepare
+  playerName = (nameInput.value || "anon").trim().slice(0,20);
+  overlay.style.display='none';
+  canvas.style.display='block';
+  canvas.focus();
+  score = 0;
+  remainingTime = totalTime;
+  numbers = [];
+  vacuum.x = canvas.width/2;
+  vacuum.y = canvas.height/2;
+  vacuum.level = 1;
+  vacuum.suction = 60;
+  gameRunning = true;
+  frameCount = 0;
+  scoreBadge.innerText = `Score: ${score}`;
+  timerBadge.innerText = formatTime(remainingTime);
+  spawnNumbersBatch(8); // start burst
+  spawnInterval = setInterval(()=>spawnNumbersBatch(3), 500);
 }
 
-function drawNumbers(){
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.font = '20px Arial';
-  numbers.forEach(n => {
-    ctx.fillStyle = '#dc2626';
-    ctx.fillText(n.value, n.x, n.y);
-    n.ttl--;
-  });
-  numbers = numbers.filter(n => n.ttl > 0);
+function endGame(){
+  gameRunning = false;
+  clearInterval(spawnInterval);
+  // show overlay with score and ask replay
+  overlay.style.display = 'flex';
+  document.getElementById('panel').scrollIntoView?.();
+  const panel = document.getElementById('panel') || overlay.querySelector('#panel');
+  // replace overlay content: reuse panel text
+  const message = `Game over — Score: ${score}`;
+  // Save to global backend (fire & forget)
+  saveScoreToGlobal(playerName, score);
+  // show ranking
+  setTimeout(()=>fetchGlobalRankingAndShow(), 600); // slight delay for DB write
 }
 
-/* ========== game update ========== */
+function formatTime(s){
+  const m = String(Math.floor(s/60)).padStart(2,'0'), sec = String(s%60).padStart(2,'0');
+  return `${m}:${sec}`;
+}
+
+/* ===============
+   INPUTS
+   =============== */
+
+// global key handlers
+document.addEventListener('keydown', e=>{
+  const k = e.key.toLowerCase();
+  if(['w','a','s','d'].includes(k)) keys[k]=true;
+});
+document.addEventListener('keyup', e=>{
+  const k = e.key.toLowerCase();
+  if(['w','a','s','d'].includes(k)) keys[k]=false;
+});
+
+// touch handlers for mobile
+canvas.addEventListener('touchstart', e=>{
+  const rect = canvas.getBoundingClientRect();
+  target = { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+});
+canvas.addEventListener('touchmove', e=>{
+  const rect = canvas.getBoundingClientRect();
+  target = { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
+});
+canvas.addEventListener('touchend', e=>{ /* keep last target */ });
+
+/* ===============
+   RENDER + UPDATE
+   =============== */
+
 function update(){
   if(!gameRunning) return;
-
-  // keyboard WASD
-  if(keys['w']) vacuum.y -= 5;
-  if(keys['s']) vacuum.y += 5;
-  if(keys['a']) vacuum.x -= 5;
-  if(keys['d']) vacuum.x += 5;
-
-  // mobile / target
-  if(targetX !== null && targetY !== null){
-    const dx = targetX - vacuum.x;
-    const dy = targetY - vacuum.y;
-    vacuum.x += dx * 0.06;
-    vacuum.y += dy * 0.06;
-    // if close, clear target so it doesn't drift back
-    if(Math.hypot(dx,dy) < 2){ targetX = null; targetY = null; }
+  // movement WASD
+  const speed = 4;
+  if(keys['w']) vacuum.y -= speed;
+  if(keys['s']) vacuum.y += speed;
+  if(keys['a']) vacuum.x -= speed;
+  if(keys['d']) vacuum.x += speed;
+  // mobile smooth move
+  if(target){
+    const dx = (target.x - vacuum.x) * 0.07;
+    const dy = (target.y - vacuum.y) * 0.07;
+    vacuum.x += dx; vacuum.y += dy;
   }
+  // bounds
+  vacuum.x = clamp(vacuum.x, 0+10, canvas.width-10);
+  vacuum.y = clamp(vacuum.y, 0+10, canvas.height-10);
 
-  // boundaries
-  vacuum.x = Math.max(10, Math.min(canvas.width-10, vacuum.x));
-  vacuum.y = Math.max(10, Math.min(canvas.height-10, vacuum.y));
-
-  // suction effect: pull numbers within radius towards vacuum
-  const radius = vacuum.suctionRadius;
-  for(let i = numbers.length-1; i >= 0; i--){
+  // numbers behavior
+  for(let i = numbers.length-1; i>=0; i--){
     const n = numbers[i];
-    const dx = vacuum.x - n.x;
-    const dy = vacuum.y - n.y;
-    const dist = Math.hypot(dx,dy);
-
-    if(dist < radius){
-      // pull speed depends on distance and level
-      const pull = (1 - dist / radius) * (0.12 + level*0.01);
-      n.x += dx * pull;
-      n.y += dy * pull;
+    // if in suction radius, move towards vacuum
+    const dx = vacuum.x - n.x, dy = vacuum.y - n.y;
+    const d = Math.hypot(dx,dy);
+    if(d < vacuum.suction){
+      n.x += dx * (0.06 + (vacuum.level*0.006));
+      n.y += dy * (0.06 + (vacuum.level*0.006));
     }
-
-    if(dist < 20){
-      // collect
+    // ttl
+    n.ttl--;
+    if(d < 22){
       score += n.value;
+      numbers.splice(i,1);
+      // level up logic: every 50 points gain a level (temp only)
+      const needed = 50;
+      const newLevel = Math.floor(score / needed) + 1;
+      if(newLevel > vacuum.level){
+        vacuum.level = newLevel;
+        vacuum.suction = 60 + (vacuum.level-1)*12; // increase suction per level
+      }
+    } else if(n.ttl <= 0){
       numbers.splice(i,1);
     }
   }
 
-  // level logic (local-only)
-  const newLevel = Math.floor(score / LEVEL_STEP) + 1;
-  if(newLevel !== level){
-    level = newLevel;
-    vacuum.suctionRadius = SUCTION_BASE + (level - 1) * SUCTION_PER_LEVEL;
-    // small visual notification
-    flashMessage(`Level Up! Level ${level}`, 1200);
-  }
-
-  // update UI
-  scoreDisplay.textContent = `Score: ${score}`;
-  levelBadge.textContent = `Level: ${level}`;
-  suctionBadge.textContent = `Suction: ${Math.round(vacuum.suctionRadius)}`;
-
-  // timer (frames -> seconds)
-  elapsedFrames++;
-  const remainingSec = Math.max(0, totalTime - Math.floor(elapsedFrames / FRAMES_PER_SEC));
-  timeDisplay.textContent = formatTime(remainingSec);
-
-  // end condition
-  if(remainingSec <= 0){
-    endGame();
+  // UI updates
+  scoreBadge.innerText = `Score: ${score}`;
+  frameCount++;
+  if(frameCount % 60 === 0){ // every ~1s
+    remainingTime = Math.max(0, remainingTime - 1);
+    timerBadge.innerText = formatTime(remainingTime);
+    if(remainingTime <= 0) endGame();
   }
 }
 
-/* ========== visual message overlay small ========== */
-let flashTimeout = null;
-function flashMessage(text, ms=900){
-  const prev = document.getElementById('tmpFlash');
-  if(prev) prev.remove();
-  const el = document.createElement('div');
-  el.id = 'tmpFlash';
-  el.style.position = 'absolute';
-  el.style.left = '50%';
-  el.style.top = '16%';
-  el.style.transform = 'translateX(-50%)';
-  el.style.background = 'rgba(0,0,0,0.75)';
-  el.style.color = 'white';
-  el.style.padding = '8px 12px';
-  el.style.borderRadius = '8px';
-  el.style.fontWeight = '700';
-  document.body.appendChild(el);
-  el.textContent = text;
-  clearTimeout(flashTimeout);
-  flashTimeout = setTimeout(()=> el.remove(), ms);
-}
-
-/* ========== game end / start logic ========== */
-async function endGame(){
-  gameRunning = false;
-  clearInterval(spawnInterval);
-  // show overlay with result and ranking
-  showEndOverlay();
-  // save score to Supabase (username + score) — wrapped in try/catch
-  const name = (playerNameInput.value || 'Player').trim().slice(0,20) || 'Player';
-  if(supabase){
-    try {
-      await supabase.from('scores').insert([{ username: name, score }]);
-    } catch(e){ console.warn("Failed to save score:", e); }
-  }
-  // fetch and display ranking list
-  await refreshAndShowRanking();
-}
-
-function showEndOverlay(){
-  overlay.style.display = 'flex';
-  // replace card content to show final score and ask replay
-  startCard.innerHTML = `
-    <h1>Game Over</h1>
-    <p class="small">Your score: <strong>${score}</strong></p>
-    <div style="display:flex;justify-content:center;margin-top:8px;">
-      <button id="replayBtn">Play Again</button>
-      <button id="rankingBtn" class="secondary">Show Global Ranking</button>
-    </div>
-    <div id="endRanking" style="margin-top:12px;"></div>
-    <p class="small" style="margin-top:8px;">Name: <strong>${(playerNameInput.value || 'Player')}</strong></p>
-    <p class="small">Note: Level does not persist between games.</p>
-  `;
-  document.getElementById('replayBtn').addEventListener('click', () => {
-    // restore startCard to initial start UI (we'll rebuild)
-    rebuildStartCard();
-    overlay.style.display = 'none';
-    canvas.style.display = 'block';
-    canvas.focus();
-    resetAndStart();
-  });
-  document.getElementById('rankingBtn').addEventListener('click', async ()=>{
-    await refreshAndShowRanking(true);
-  });
-}
-
-/* restore original start card UI */
-function rebuildStartCard(){
-  startCard.innerHTML = `
-    <h1>Vacoomy</h1>
-    <p class="small">Collect numbers within 2 minutes. Move with WASD or touch. Higher score appears in the global ranking.</p>
-    <label style="display:block;text-align:left;font-weight:700;margin-top:8px;">Enter your name</label>
-    <input id="playerName" type="text" maxlength="20" placeholder="Player" />
-    <div style="margin-top:12px;display:flex;justify-content:center;">
-      <button id="startBtn">Start</button>
-      <button id="showRankingBtn" class="secondary">Show Global Ranking</button>
-    </div>
-    <div id="rankingList" style="display:none;"></div>
-    <p style="margin-top:12px;" class="small">Note: Level is local-only and resets each game.</p>
-  `;
-  // rebind DOM elements and handlers
-  bindStartCardButtons();
-}
-
-/* refresh ranking from Supabase and show inside card or alert */
-async function refreshAndShowRanking(injectIntoEnd=false){
-  if(!supabase){
-    // no supabase available
-    const el = injectIntoEnd ? document.getElementById('endRanking') : document.getElementById('rankingList');
-    if(el){
-      el.style.display = 'block';
-      el.innerHTML = '<p class="small">Global ranking not available (no backend).</p>';
-    } else {
-      alert('Global ranking not available (no backend)');
-    }
-    return;
-  }
-  try {
-    const { data, error } = await supabase
-      .from('scores')
-      .select('username,score')
-      .order('score', { ascending: false })
-      .limit(10);
-    if(error) throw error;
-    // inject into UI
-    const el = injectIntoEnd ? document.getElementById('endRanking') : document.getElementById('rankingList');
-    if(!el) {
-      // alert fallback
-      alert("Global Ranking:\n" + data.map((r,i)=>`${i+1}. ${r.username || 'Player'} — ${r.score}`).join('\n'));
-      return;
-    }
-    el.style.display = 'block';
-    if(data.length === 0){
-      el.innerHTML = '<p class="small">No scores yet.</p>';
-      return;
-    }
-    el.innerHTML = '';
-    data.forEach((r,i)=>{
-      const row = document.createElement('div');
-      row.className = 'rank-item';
-      row.innerHTML = `<div>${i+1}. ${escapeHtml(r.username || 'Player')}</div><div>${r.score}</div>`;
-      el.appendChild(row);
-    });
-  } catch(err){
-    console.error("Ranking fetch error", err);
-    const el = injectIntoEnd ? document.getElementById('endRanking') : document.getElementById('rankingList');
-    if(el){ el.style.display='block'; el.innerHTML = '<p class="small">Failed to load ranking.</p>'; }
-    else alert('Failed to load ranking.');
-  }
-}
-
-/* utility to escape user text */
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-
-/* ========== start/reset ========== */
-function resetAndStart(){
-  // reset
-  vacuum.x = canvas.width/2;
-  vacuum.y = canvas.height/2;
-  vacuum.suctionRadius = SUCTION_BASE;
-  vacuum.size = 44;
-  numbers = [];
-  score = 0;
-  elapsedFrames = 0;
-  level = 1;
-  lastScoreForLevel = 0;
-  scoreDisplay.textContent = `Score: 0`;
-  levelBadge.textContent = `Level: ${level}`;
-  suctionBadge.textContent = `Suction: ${vacuum.suctionRadius}`;
-  // spawn
-  if(spawnInterval) clearInterval(spawnInterval);
-  spawnInterval = setInterval(spawnNumbers, SPAWN_EVERY_MS);
-  gameRunning = true;
-}
-
-/* initial binding of start card buttons */
-function bindStartCardButtons(){
-  const sBtn = document.getElementById('startBtn');
-  const rBtn = document.getElementById('showRankingBtn');
-  const nameInput = document.getElementById('playerName');
-  sBtn && sBtn.addEventListener('click', ()=>{
-    // hide overlay and start
-    overlay.style.display = 'none';
-    canvas.style.display = 'block';
-    canvas.focus();
-    // keep entered name in global input (playerNameInput)
-    playerNameInput.value = nameInput.value;
-    resetAndStart();
-  });
-  rBtn && rBtn.addEventListener('click', async ()=>{
-    // show ranking in the small box beneath
-    const list = document.getElementById('rankingList');
-    if(list.style.display === 'block'){
-      list.style.display = 'none';
-    } else {
-      await refreshAndShowRanking(false);
-    }
-  });
-  // set placeholder value to the input
-  if(playerNameInput.value) nameInput.value = playerNameInput.value;
-}
-bindStartCardButtons();
-
-/* ========== input events: keyboard and touch ======= */
-document.addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
-  if(["w","a","s","d"].includes(k)) keys[k] = true;
-});
-document.addEventListener('keyup', e => {
-  const k = e.key.toLowerCase();
-  if(["w","a","s","d"].includes(k)) keys[k] = false;
-});
-
-// touch control: set target on touchstart/move
-canvas.addEventListener('touchstart', e=>{
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.touches[0].clientX - rect.left;
-  targetY = e.touches[0].clientY - rect.top;
-  // prevent scrolling
-  e.preventDefault();
-});
-canvas.addEventListener('touchmove', e=>{
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.touches[0].clientX - rect.left;
-  targetY = e.touches[0].clientY - rect.top;
-  e.preventDefault();
-});
-canvas.addEventListener('mousedown', e=>{
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.clientX - rect.left;
-  targetY = e.clientY - rect.top;
-});
-canvas.addEventListener('mousemove', e=>{
-  if(e.buttons === 1){
-    const rect = canvas.getBoundingClientRect();
-    targetX = e.clientX - rect.left;
-    targetY = e.clientY - rect.top;
-  }
-});
-canvas.addEventListener('mouseup', ()=>{ targetX = null; targetY = null; });
-
-/* ========== main loop ========== */
-function loop(){
+function draw(){
+  // clear
   ctx.clearRect(0,0,canvas.width,canvas.height);
+
+  // draw numbers
+  numbers.forEach(n=>{
+    ctx.fillStyle = '#ff3b30';
+    ctx.font = '18px Arial';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(n.value, n.x, n.y);
+  });
+
+  // draw suction radius (visible)
+  ctx.beginPath();
+  ctx.fillStyle = 'rgba(11,92,255,0.12)';
+  ctx.arc(vacuum.x, vacuum.y, vacuum.suction, 0, Math.PI*2);
+  ctx.fill();
+
+  // robot (emoji)
+  ctx.font = `${vacuum.size}px Arial`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(vacuum.emoji, vacuum.x, vacuum.y);
+
+  // draw level badge on canvas top-left
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.fillRect(10,10,110,30);
+  ctx.fillStyle = '#333';
+  ctx.font = '14px Arial';
+  ctx.textAlign = 'left';
+  ctx.fillText(`Level ${vacuum.level}`, 16, 30);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#0b5cff';
+  ctx.fillText(`Suction ${Math.round(vacuum.suction)}`, 118, 30);
+}
+
+function loop(){
   update();
-  drawVacuum();
-  drawNumbers();
+  draw();
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
 
-/* ========== initialize small niceties ========= */
-canvas.style.display = 'none'; // until start pressed (overlay visible)
-timeDisplay.textContent = formatTime(totalTime);
-suctionBadge.textContent = `Suction: ${vacuum.suctionRadius}`;
+/* ===============
+   START / HOOKS
+   =============== */
 
-/* ========== expose a simple test method (optional) ========= */
-window._vacoomy_testSupabase = async function(){
-  if(!supabase){ console.warn("No supabase"); return; }
-  try {
-    const { data, error } = await supabase.from('scores').select('*').limit(1);
-    console.log("testSupabase:", data, error);
-  } catch(e){ console.warn(e); }
-};
+startBtn.addEventListener('click', ()=>{
+  // quick guard: find input name
+  playerName = (nameInput.value || "anon").trim().slice(0,20);
+  startBtn.disabled = true;
+  // small delay so UI hides then focus
+  setTimeout(()=>{
+    startGame();
+    startBtn.disabled = false;
+  }, 120);
+});
+
+showRankingBtn.addEventListener('click', ()=>fetchGlobalRankingAndShow());
+
+// initial draw: show overlay, canvas hidden
+canvas.style.display = 'none';
+overlay.style.display = 'flex';
+loop();
+
+/* ===============
+   On load: ensure DB table exists check (non-blocking)
+   =============== */
+(async function checkSupabaseTable(){
+  if(!supabase) return;
+  try{
+    // try a simple select to confirm permissions and table
+    const { data, error } = await supabase.from('scores').select('id').limit(1);
+    if(error){
+      console.warn("Supabase test query error:", error);
+    }
+  }catch(e){ console.warn("Supabase test failed:", e); }
+})();
 </script>
 </body>
 </html>
