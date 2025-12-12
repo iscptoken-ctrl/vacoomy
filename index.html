@@ -1,244 +1,299 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Vacoomy</title>
-  <style>
-    body {
-      margin: 0;
-      background: #111;
-      font-family: Arial;
-      color: white;
-      text-align: center;
-      overflow: hidden;
-    }
-    #menu {
-      position: absolute;
-      top: 30%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 280px;
-    }
-    #username {
-      width: 100%;
-      padding: 12px;
-      font-size: 18px;
-      text-align: center;
-      border-radius: 8px;
-      border: none;
-      margin-bottom: 12px;
-    }
-    #startBtn {
-      width: 100%;
-      padding: 12px;
-      font-size: 20px;
-      background: #4CAF50;
-      border: none;
-      border-radius: 8px;
-      color: white;
-      cursor: pointer;
-    }
-    #gameCanvas { 
-      display: none;
-      background: #222;
-    }
-    #scoreBox, #timerBox {
-      position: absolute;
-      top: 10px;
-      font-size: 24px;
-    }
-    #scoreBox { left: 10px; }
-    #timerBox { right: 10px; }
-    #ranking {
-      display: none;
-      position: absolute;
-      top: 10%;
-      width: 100%;
-      text-align: center;
-      font-size: 22px;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Vacoomy</title>
+<style>
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f0f2f5;font-family:Arial, sans-serif}
+  #container{position:relative;width:700px;max-width:95vw}
+  #gameCanvas{display:none;background:#fff;border:2px solid #000;width:600px;height:600px;margin:0 auto;touch-action:none}
+  #hud{display:flex;justify-content:space-between;align-items:center;padding:10px}
+  #score,#timer{font-weight:700}
+  #overlay{position:absolute;inset:0;background:rgba(0,0,0,0.7);display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+  #overlay input{padding:8px;font-size:16px;margin-top:8px;border-radius:6px;border:1px solid #ccc}
+  #overlay button{padding:10px 16px;margin-top:12px;font-size:16px;border-radius:6px;cursor:pointer}
+  #rankingBox{margin-top:12px;background:#fff;color:#000;padding:8px;border-radius:6px;max-height:200px;overflow:auto;display:none}
+  .small{font-size:13px;color:#666}
+</style>
 </head>
-
 <body>
+<div id="container">
+  <div id="hud" style="display:none">
+    <div id="score">Score: 0</div>
+    <div id="timer">02:00</div>
+  </div>
 
-<div id="menu">
-  <h1>Vacoomy</h1>
-  <input id="username" placeholder="Enter username">
-  <button id="startBtn">Start</button>
+  <canvas id="gameCanvas" width="600" height="600" tabindex="0"></canvas>
+
+  <div id="overlay">
+    <h1>Vacoomy</h1>
+    <div class="small">Enter a username and press Start</div>
+    <input id="usernameInput" placeholder="Username (max 20 chars)" maxlength="20" />
+    <button id="startBtn">Start</button>
+    <div id="rankingBox"></div>
+    <div class="small" style="margin-top:8px">Global ranking requires working Supabase backend.</div>
+  </div>
 </div>
 
-<div id="ranking">
-  <h2>Global Ranking</h2>
-  <div id="rankList"></div>
-  <button onclick="reloadGame()">Play Again</button>
-</div>
-
-<canvas id="gameCanvas" width="900" height="600"></canvas>
-<div id="scoreBox">Score: 0</div>
-<div id="timerBox">120</div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
-/* ---------- SUPABASE ---------- */
-const SUPA_URL = "https://rwpzycqetqfeasveviho.supabase.co";
-const SUPA_KEY = "sb_publishable_Bx5RBH5HrKmz8p8YRRH--Q_s-AYrwvt";
-const supabase = supabase.createClient(SUPA_URL, SUPA_KEY);
+/* ---------- Supabase config (senin verdiğin) ---------- */
+const SUPABASE_URL = `https://rwpzycqetqfeasveviho.supabase.co`;
+const SUPABASE_KEY = `sb_publishable_Bx5RBH5HrKmz8p8YRRH--Q_s-AYrwvt`; // senin belirttiğin publishable key örneği
+let supabase = null;
+try {
+  supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
+} catch(e){
+  console.warn("Supabase client failed:", e);
+}
 
-/* ---------- DOM ELEMENTS ---------- */
-const menu = document.getElementById("menu");
-const rankingDiv = document.getElementById("ranking");
-const rankList = document.getElementById("rankList");
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-const scoreBox = document.getElementById("scoreBox");
-const timerBox = document.getElementById("timerBox");
+/* ---------- DOM ---------- */
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const overlay = document.getElementById('overlay');
+const usernameInput = document.getElementById('usernameInput');
+const startBtn = document.getElementById('startBtn');
+const scoreEl = document.getElementById('score');
+const timerEl = document.getElementById('timer');
+const hud = document.getElementById('hud');
+const rankingBox = document.getElementById('rankingBox');
 
-let username = "";
-let score = 0;
-let timeLeft = 120;
-
-let robot = {
-  x: 450, y: 300,
-  speed: 4,
-  size: 30,
-  angle: 0
-};
-
-let keys = {};
+/* ---------- Oyun değişkenleri ---------- */
+let vacuum = { x:300, y:300, size:40, emoji:"🤖", attractRadius:50 };
 let numbers = [];
+let score = 0;
+let totalTime = 120;
+let elapsed = 0;
+let gameRunning = false;
+let spawnInterval = null;
+let targetX = null, targetY = null;
+let keys = {};
 
-/* ---------- INPUT ---------- */
-document.addEventListener("keydown", e => keys[e.key] = true);
-document.addEventListener("keyup", e => keys[e.key] = false);
-
-/* ---------- START BUTTON ---------- */
-document.getElementById("startBtn").onclick = () => {
-  username = document.getElementById("username").value.trim();
-  if (!username) { alert("Enter username"); return; }
-
-  menu.style.display = "none";
-  canvas.style.display = "block";
-  score = 0;
-  timeLeft = 120;
-  numbers = [];
-
-  spawnNumbers();
-  gameLoop();
-  startTimer();
-};
-
-/* ---------- GAME LOOP ---------- */
-function gameLoop() {
-  update();
-  draw();
-  requestAnimationFrame(gameLoop);
+/* ---------- Kullanıcı girdisi: username ---------- */
+function getUsername(){
+  const name = (usernameInput.value || "").trim();
+  if(!name) return null;
+  return name.slice(0,20);
 }
 
-function update() {
-  if (keys["w"]) robot.y -= robot.speed;
-  if (keys["s"]) robot.y += robot.speed;
-  if (keys["a"]) robot.x -= robot.speed;
-  if (keys["d"]) robot.x += robot.speed;
-
-  let dx = 0, dy = 0;
-  if (keys["w"]) dy = -1;
-  if (keys["s"]) dy = 1;
-  if (keys["a"]) dx = -1;
-  if (keys["d"]) dx = 1;
-  if (dx !== 0 || dy !== 0) robot.angle = Math.atan2(dy, dx);
-
-  numbers.forEach((n, i) => {
-    let dist = Math.hypot(robot.x - n.x, robot.y - n.y);
-    if (dist < 60) {
-      score += n.value;
-      numbers.splice(i, 1);
-    }
-  });
-
-  scoreBox.textContent = "Score: " + score;
-}
-
-/* ---------- DRAW ---------- */
-function draw() {
-  ctx.clearRect(0,0,900,600);
-
-  // Numbers
-  ctx.fillStyle = "yellow";
-  numbers.forEach(n => {
-    ctx.fillText(n.value, n.x, n.y);
-  });
-
-  // Robot Emoji
-  ctx.save();
-  ctx.translate(robot.x, robot.y);
-  ctx.rotate(robot.angle);
-  ctx.font = "40px serif";
-  ctx.fillText("🤖", -20, 15);
-
-  // Attraction Cone
-  ctx.fillStyle = "rgba(0,255,255,0.2)";
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(80, -40);
-  ctx.lineTo(80, 40);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.restore();
-}
-
-/* ---------- NUMBER SPAWN ---------- */
-function spawnNumbers() {
-  setInterval(() => {
+/* ---------- Spawn daha fazla, TTL value*60 ---------- */
+function spawnNumbers(){
+  if(!gameRunning) return;
+  for(let i=0;i<4;i++){ // daha çok rakam
+    const value = Math.floor(Math.random()*9)+1;
     numbers.push({
-      x: Math.random()*880+10,
-      y: Math.random()*580+10,
-      value: Math.floor(Math.random()*9)+1
+      x: Math.random()*(canvas.width-20)+10,
+      y: Math.random()*(canvas.height-20)+10,
+      value,
+      ttl: value*60
     });
-  }, 700);
+  }
 }
 
-/* ---------- TIMER ---------- */
-function startTimer() {
-  let t = setInterval(async () => {
-    timeLeft--;
-    timerBox.textContent = timeLeft;
-    if (timeLeft <= 0) {
-      clearInterval(t);
-      await saveScore();
-      await loadRanking();
+/* ---------- Çizimler ---------- */
+function drawVacuum(){
+  // çekim alan (görünür)
+  ctx.fillStyle = 'rgba(0,120,255,0.15)';
+  ctx.beginPath();
+  ctx.arc(vacuum.x, vacuum.y, vacuum.attractRadius, 0, Math.PI*2);
+  ctx.fill();
+  // robot emoji
+  ctx.font = `${vacuum.size}px serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "#0b66ff";
+  ctx.fillText(vacuum.emoji, vacuum.x, vacuum.y);
+}
+
+function drawNumbers(){
+  ctx.fillStyle = "red";
+  ctx.font = "18px Arial";
+  numbers.forEach(n=> ctx.fillText(n.value, n.x, n.y));
+}
+
+/* ---------- Kontroller ---------- */
+document.addEventListener('keydown', e=>{
+  const k = e.key.toLowerCase();
+  if(["w","a","s","d"].includes(k)) keys[k]=true;
+});
+document.addEventListener('keyup', e=>{
+  const k = e.key.toLowerCase();
+  if(["w","a","s","d"].includes(k)) keys[k]=false;
+});
+
+/* Mobil */
+canvas.addEventListener('touchstart', e=>{
+  const r = canvas.getBoundingClientRect();
+  targetX = e.touches[0].clientX - r.left;
+  targetY = e.touches[0].clientY - r.top;
+});
+canvas.addEventListener('touchmove', e=>{
+  const r = canvas.getBoundingClientRect();
+  targetX = e.touches[0].clientX - r.left;
+  targetY = e.touches[0].clientY - r.top;
+});
+canvas.addEventListener('touchend', ()=>{ targetX=null; targetY=null; });
+
+/* ---------- Oyun mantığı ---------- */
+function update(){
+  if(!gameRunning) return;
+
+  // WASD
+  if(keys.w) vacuum.y -= 5;
+  if(keys.s) vacuum.y += 5;
+  if(keys.a) vacuum.x -= 5;
+  if(keys.d) vacuum.x += 5;
+
+  // mobil yumuşak hedef
+  if(targetX !== null && targetY !== null){
+    const dx = targetX - vacuum.x;
+    const dy = targetY - vacuum.y;
+    vacuum.x += dx*0.06;
+    vacuum.y += dy*0.06;
+  }
+
+  vacuum.x = Math.max(0, Math.min(canvas.width, vacuum.x));
+  vacuum.y = Math.max(0, Math.min(canvas.height, vacuum.y));
+
+  // num çekimi
+  numbers.forEach((n,i)=>{
+    const dx = vacuum.x - n.x;
+    const dy = vacuum.y - n.y;
+    const d = Math.hypot(dx,dy);
+    if(d < vacuum.attractRadius){
+      n.x += dx * (0.06 + n.value*0.002); // value'ya göre hız farkı
+      n.y += dy * (0.06 + n.value*0.002);
     }
-  }, 1000);
+    if(d < 20){
+      score += n.value;
+      numbers.splice(i,1);
+    }
+    n.ttl--;
+  });
+  numbers = numbers.filter(n=> n.ttl > 0);
+
+  // timer
+  elapsed++;
+  const remaining = Math.max(0, totalTime - Math.floor(elapsed/60));
+  const mm = String(Math.floor(remaining/60)).padStart(2,"0");
+  const ss = String(remaining%60).padStart(2,"0");
+  timerEl.textContent = `${mm}:${ss}`;
+  scoreEl.textContent = `Score: ${score}`;
+
+  if(remaining <= 0){
+    endGame();
+  }
 }
 
-/* ---------- SUPABASE SAVE ---------- */
-async function saveScore() {
-  await supabase.from("scores").insert([{ username, score }]);
+/* ---------- Oyun döngüsü ---------- */
+function loop(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  update();
+  drawVacuum();
+  drawNumbers();
+  requestAnimationFrame(loop);
+}
+loop();
+
+/* ---------- Başlat / Bitir ---------- */
+startBtn.addEventListener('click', async ()=>{
+  const name = getUsername();
+  if(!name){
+    alert("Please enter a username.");
+    return;
+  }
+
+  // overlay gizle, HUD göster
+  overlay.style.display = 'none';
+  document.getElementById('gameCanvas').style.display = 'block';
+  hud.style.display = 'flex';
+  canvas.focus();
+
+  // reset
+  score = 0; elapsed = 0; numbers = [];
+  vacuum.attractRadius = 50; // başlangıç
+  gameRunning = true;
+  spawnInterval && clearInterval(spawnInterval);
+  spawnNumbers();
+  spawnInterval = setInterval(spawnNumbers, 500);
+  // show ranking box initial
+  await fetchAndShowRanking();
+});
+
+/* End game */
+async function endGame(){
+  gameRunning = false;
+  spawnInterval && clearInterval(spawnInterval);
+  // kaydet Supabase'e (hata olsa da oyun etkilemez)
+  const name = getUsername() || "anonymous";
+  try {
+    if(supabase){
+      await supabase.from('scores').insert([{ username: name, score }]);
+    }
+  } catch(e){
+    console.warn("Save to supabase failed:", e);
+  }
+  // overlay tekrar göster
+  overlay.style.display = 'flex';
+  document.getElementById('gameCanvas').style.display = 'none';
+  startBtn.textContent = "Play Again";
+  // güncel ranking göster
+  await fetchAndShowRanking();
 }
 
-/* ---------- SUPABASE LOAD RANKING ---------- */
-async function loadRanking() {
-  canvas.style.display = "none";
-  scoreBox.style.display = "none";
-  timerBox.style.display = "none";
-
-  rankingDiv.style.display = "block";
-
-  const { data } = await supabase
-    .from("scores")
-    .select("*")
-    .order("score", { ascending: false })
-    .limit(10);
-
-  rankList.innerHTML = data.map((r,i)=>`<div>${i+1}. ${r.username} - ${r.score}</div>`).join("");
+/* ---------- Ranking çek ve göster ---------- */
+async function fetchAndShowRanking(){
+  rankingBox.style.display = 'none';
+  rankingBox.innerHTML = "Loading ranking...";
+  if(!supabase){
+    rankingBox.innerHTML = "<b>Global ranking not available (no backend).</b>";
+    rankingBox.style.display = 'block';
+    return;
+  }
+  try {
+    const { data, error } = await supabase
+      .from('scores')
+      .select('username,score,created_at')
+      .order('score', { ascending: false })
+      .limit(10);
+    if(error){
+      rankingBox.innerHTML = `<b>Ranking error:</b> ${error.message || error}`;
+      rankingBox.style.display = 'block';
+      return;
+    }
+    if(!data || data.length === 0){
+      rankingBox.innerHTML = "<b>No scores yet</b>";
+      rankingBox.style.display = 'block';
+      return;
+    }
+    const rows = data.map((r, i)=> `<div>${i+1}. <b>${escapeHtml(r.username)}</b> — ${r.score}</div>`).join("");
+    rankingBox.innerHTML = `<div style="font-weight:700;margin-bottom:6px">Global Ranking</div>${rows}`;
+    rankingBox.style.display = 'block';
+  } catch(e){
+    rankingBox.innerHTML = `<b>Ranking fetch failed</b>`;
+    rankingBox.style.display = 'block';
+    console.warn(e);
+  }
 }
 
-/* ---------- RESTART ---------- */
-function reloadGame() {
-  location.reload();
+/* ---------- Helper ---------- */
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 }
+
+/* ---------- Quick supabase connection test (console) ---------- */
+async function testConn(){
+  if(!supabase) return console.warn("No supabase client");
+  try {
+    const { error } = await supabase.from('scores').select('id').limit(1);
+    if(error) console.warn("Supabase test select error:", error);
+    else console.log("Supabase test OK");
+  } catch(e){
+    console.warn("Supabase test failed", e);
+  }
+}
+testConn();
 
 </script>
 </body>
