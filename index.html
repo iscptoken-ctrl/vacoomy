@@ -1,269 +1,275 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Vacoomy</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
     body {
-        margin: 0;
-        background: #222;
-        overflow: hidden;
-        font-family: Arial, sans-serif;
-        color: white;
-        text-align: center;
-    }
-    #gameCanvas {
-        background: #333;
-        display:block;
-        margin: 0 auto;
-        border: 2px solid #555;
-    }
-    #ui {
-        position: absolute;
-        top: 10px;
-        left: 50%;
-        transform: translateX(-50%);
-        font-size: 22px;
-    }
-    #startScreen, #endScreen, #nameScreen, #rankingScreen {
-        position:absolute;
-        top:0; left:0;
-        width:100%; height:100%;
-        background:#000c;
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        align-items:center;
+        margin:0;
+        background:#1a1a1a;
         color:white;
-        font-size:28px;
+        font-family:Arial, sans-serif;
+        overflow:hidden;
+        text-align:center;
+    }
+    #menu, #game, #rankingScreen {
+        display:none;
+    }
+    #usernameInput {
+        padding:10px;
+        font-size:18px;
+        width:200px;
+    }
+    #gameArea {
+        margin:0 auto;
+        margin-top:20px;
+        width:380px;
+        height:380px;
+        background:#222;
+        border:3px solid #444;
+        position:relative;
+        overflow:hidden;
+    }
+    .number {
+        position:absolute;
+        font-size:22px;
+        font-weight:bold;
+        color:#ffe680;
+    }
+    #robot {
+        position:absolute;
+        font-size:40px;
+        transform: translate(-50%, -50%);
+    }
+    #cone {
+        position:absolute;
+        width:120px;
+        height:120px;
+        background:rgba(255,255,0,0.25);
+        clip-path: polygon(0 50%, 100% 0, 100% 100%);
+        transform-origin:left center;
+    }
+    #timer, #scoreDisplay {
+        font-size:20px;
+        margin-top:10px;
     }
     button {
-        font-size:22px;
-        padding:10px 20px;
-        margin-top:20px;
+        padding:12px 24px;
+        background:#4CAF50;
+        color:white;
+        border:none;
+        border-radius:6px;
+        font-size:18px;
+        margin-top:10px;
         cursor:pointer;
     }
 </style>
 </head>
 <body>
 
-<div id="ui">Time: <span id="time">120</span> | Score: <span id="score">0</span></div>
-<canvas id="gameCanvas" width="480" height="480"></canvas>
-
-<!-- NAME SCREEN -->
-<div id="nameScreen">
-    <div>Enter your username</div>
-    <input id="usernameInput" style="font-size:22px; padding:5px; margin-top:10px;" />
-    <button onclick="saveName()">OK</button>
+<div id="menu">
+    <h2>Vacoomy</h2>
+    <p>Enter username</p>
+    <input id="usernameInput" placeholder="your name">
+    <br><button onclick="startGame()">Start</button>
 </div>
 
-<!-- START SCREEN -->
-<div id="startScreen" style="display:none">
-    <div>Vacoomy</div>
-    <button onclick="startGame()">Start</button>
-    <button onclick="showRanking()">Global Ranking</button>
+<div id="game">
+    <div id="timer"></div>
+    <div id="scoreDisplay"></div>
+    <div id="gameArea">
+        <div id="cone"></div>
+        <div id="robot">🤖</div>
+    </div>
 </div>
 
-<!-- END SCREEN -->
-<div id="endScreen" style="display:none">
-    <div id="finalScore"></div>
-    <button onclick="restart()">Play Again</button>
-    <button onclick="showRanking()">Global Ranking</button>
+<div id="rankingScreen">
+    <h2>Game Over</h2>
+    <p id="finalScore"></p>
+    <h3>Global Ranking</h3>
+    <div id="rankingList">Loading...</div>
+    <button onclick="returnToMenu()">Play Again</button>
 </div>
 
-<!-- RANKING -->
-<div id="rankingScreen" style="display:none">
-    <div>Global Ranking</div>
-    <div id="rankList" style="margin-top:15px; font-size:20px;"></div>
-    <button onclick="closeRanking()">Close</button>
-</div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-// ----------------------
-// SUPABASE CONFIG
-// ----------------------
+
+// ---------------- SUPABASE ------------------
+
 const SUPABASE_URL = "https://rwpzycqetqfeasveviho.supabase.co";
 const SUPABASE_KEY = "sb_publishable_Bx5RBH5HrKmz8p8YRRH--Q_s-AYrwvt";
 
-const supabase = supabasejs.createClient(SUPABASE_URL, SUPABASE_KEY);
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ----------------------
-// GAME VARIABLES
-// ----------------------
+// ---------------- GAME VARIABLES ------------------
+
 let username = "";
-let canvas = document.getElementById("gameCanvas");
-let ctx = canvas.getContext("2d");
-
-let player = { x:240, y:240, size:22, speed:3 };
 let score = 0;
 let timeLeft = 120;
-let numbers = [];
-
-let keys = { w:false, a:false, s:false, d:false };
-let running = false;
+let robotX = 190, robotY = 190;
+let speed = 3;
+let dirX = 0, dirY = 0;
+let spawnInterval;
 let timerInterval;
 
-// ----------------------
-// USERNAME SYSTEM
-// ----------------------
-function saveName(){
-    let val = document.getElementById("usernameInput").value.trim();
-    if(!val){ alert("Enter a valid name"); return; }
-    username = val;
-    document.getElementById("nameScreen").style.display = "none";
-    document.getElementById("startScreen").style.display = "flex";
-}
+document.addEventListener("keydown", (e)=>{
+    if(e.key === "w") dirY = -1;
+    if(e.key === "s") dirY = 1;
+    if(e.key === "a") dirX = -1;
+    if(e.key === "d") dirX = 1;
+});
+document.addEventListener("keyup", (e)=>{
+    if(e.key === "w" || e.key === "s") dirY = 0;
+    if(e.key === "a" || e.key === "d") dirX = 0;
+});
 
-// ----------------------
-// START GAME
-// ----------------------
+// ---------------- START GAME ------------------
+
 function startGame(){
+    username = document.getElementById("usernameInput").value.trim();
+    if(username.length < 2){
+        alert("Username must be at least 2 characters");
+        return;
+    }
+
+    document.getElementById("menu").style.display="none";
+    document.getElementById("game").style.display="block";
+
     score = 0;
     timeLeft = 120;
-    document.getElementById("score").textContent = score;
-    document.getElementById("time").textContent = timeLeft;
+    robotX = 190;
+    robotY = 190;
 
-    numbers = [];
-    spawnLoop();
+    document.getElementById("scoreDisplay").innerText = "Score: 0";
+    document.getElementById("timer").innerText = "Time: 120";
 
-    running = true;
-
-    document.getElementById("startScreen").style.display = "none";
-
-    timerInterval = setInterval(()=>{
-        timeLeft--;
-        document.getElementById("time").textContent = timeLeft;
-        if(timeLeft <= 0){
-            endGame();
-        }
-    },1000);
+    spawnInterval = setInterval(spawnNumber, 700);
+    timerInterval = setInterval(updateTimer, 1000);
 
     requestAnimationFrame(gameLoop);
 }
 
-// ----------------------
-// END GAME + SAVE SCORE
-// ----------------------
+// ---------------- NUMBER SPAWN ------------------
+
+function spawnNumber(){
+    const gameArea = document.getElementById("gameArea");
+    const div = document.createElement("div");
+    div.className = "number";
+
+    const value = Math.floor(Math.random()*9)+1;
+    div.innerText = value;
+
+    div.style.left = (Math.random()*340)+"px";
+    div.style.top = (Math.random()*340)+"px";
+
+    gameArea.appendChild(div);
+
+    setTimeout(()=>div.remove(), 4000);
+}
+
+// ---------------- GAME LOOP ------------------
+
+function gameLoop(){
+    robotX += dirX * speed;
+    robotY += dirY * speed;
+
+    robotX = Math.max(20, Math.min(360, robotX));
+    robotY = Math.max(20, Math.min(360, robotY));
+
+    const robot = document.getElementById("robot");
+    robot.style.left = robotX+"px";
+    robot.style.top = robotY+"px";
+
+    const angle = Math.atan2(dirY, dirX) * 180 / Math.PI;
+    const cone = document.getElementById("cone");
+    cone.style.left = robotX+"px";
+    cone.style.top = robotY+"px";
+    cone.style.transform = `rotate(${angle}deg)`;
+
+    absorbNumbers();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ---------------- ABSORB NUMBERS ------------------
+
+function absorbNumbers(){
+    const nums = document.querySelectorAll(".number");
+
+    nums.forEach(n=>{
+        const nx = parseFloat(n.style.left);
+        const ny = parseFloat(n.style.top);
+
+        const dx = nx - robotX;
+        const dy = ny - robotY;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+
+        if(dist < 50){
+            score += parseInt(n.innerText);
+            n.remove();
+            document.getElementById("scoreDisplay").innerText = "Score: " + score;
+        }
+    });
+}
+
+// ---------------- TIMER ------------------
+
+function updateTimer(){
+    timeLeft--;
+    document.getElementById("timer").innerText = "Time: " + timeLeft;
+
+    if(timeLeft <= 0){
+        endGame();
+    }
+}
+
+// ---------------- END GAME ------------------
+
 async function endGame(){
-    running = false;
+
+    clearInterval(spawnInterval);
     clearInterval(timerInterval);
 
-    // SAVE SCORE
-    await supabase.from("scores").insert({
+    document.getElementById("game").style.display="none";
+    document.getElementById("rankingScreen").style.display="block";
+
+    document.getElementById("finalScore").innerText = "Your Score: " + score;
+
+    // Save to Supabase
+    await db.from("scores").insert({
         username: username,
         score: score
     });
 
-    document.getElementById("finalScore").textContent =
-        "Your score: " + score;
-
-    document.getElementById("endScreen").style.display = "flex";
+    loadRanking();
 }
 
-function restart(){
-    document.getElementById("endScreen").style.display = "none";
-    document.getElementById("startScreen").style.display = "flex";
-}
+// ---------------- LOAD RANKING ------------------
 
-// ----------------------
-// GLOBAL RANKING
-// ----------------------
-async function showRanking(){
-    document.getElementById("rankingScreen").style.display = "flex";
+async function loadRanking(){
+    const list = document.getElementById("rankingList");
+    list.innerHTML = "Loading...";
 
-    let { data, error } = await supabase
+    let { data, error } = await db
         .from("scores")
         .select("*")
         .order("score", { ascending:false })
-        .limit(20);
+        .limit(10);
 
-    let list = "";
+    if(error){
+        list.innerHTML = "Error loading ranking";
+        return;
+    }
+
+    list.innerHTML = "";
     data.forEach((r, i)=>{
-        list += `${i+1}. ${r.username}: ${r.score}<br>`;
+        list.innerHTML += `<div>${i+1}. ${r.username} — ${r.score}</div>`;
     });
-
-    document.getElementById("rankList").innerHTML = list;
 }
 
-function closeRanking(){
-    document.getElementById("rankingScreen").style.display = "none";
-}
-
-// ----------------------
-// MOVEMENT
-// ----------------------
-document.addEventListener("keydown", e=>{
-    if(e.key === "w") keys.w = true;
-    if(e.key === "a") keys.a = true;
-    if(e.key === "s") keys.s = true;
-    if(e.key === "d") keys.d = true;
-});
-document.addEventListener("keyup", e=>{
-    if(e.key === "w") keys.w = false;
-    if(e.key === "a") keys.a = false;
-    if(e.key === "s") keys.s = false;
-    if(e.key === "d") keys.d = false;
-});
-
-// ----------------------
-// SPAWN NUMBERS
-// ----------------------
-function spawnLoop(){
-    setInterval(()=>{
-        let n = {
-            x: Math.random()*460+10,
-            y: Math.random()*460+10,
-            value: Math.floor(Math.random()*9)+1,
-            life: 100
-        };
-        numbers.push(n);
-    }, 400);
-}
-
-// ----------------------
-// GAME LOOP
-// ----------------------
-function gameLoop(){
-    if(!running) return;
-
-    ctx.clearRect(0,0,480,480);
-
-    // Move
-    if(keys.w) player.y -= player.speed;
-    if(keys.s) player.y += player.speed;
-    if(keys.a) player.x -= player.speed;
-    if(keys.d) player.x += player.speed;
-
-    // Robot vacuum icon
-    ctx.font = "26px serif";
-    ctx.fillText("🤖", player.x-15, player.y+10);
-
-    // VACUUM RANGE VISUAL
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, 40, 0, Math.PI*2);
-    ctx.strokeStyle="yellow";
-    ctx.stroke();
-
-    // Draw numbers
-    numbers.forEach((n,i)=>{
-        ctx.fillStyle="white";
-        ctx.font="20px Arial";
-        ctx.fillText(n.value, n.x, n.y);
-
-        let dx = n.x - player.x;
-        let dy = n.y - player.y;
-        let dist = Math.sqrt(dx*dx + dy*dy);
-
-        if(dist < 40){
-            score += n.value;
-            document.getElementById("score").textContent = score;
-            numbers.splice(i,1);
-        }
-    });
-
-    requestAnimationFrame(gameLoop);
+function returnToMenu(){
+    document.getElementById("rankingScreen").style.display="none";
+    document.getElementById("menu").style.display="block";
 }
 
 </script>
