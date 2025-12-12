@@ -1,549 +1,236 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Vacoomy — Robot Clean</title>
+<meta charset="UTF-8">
+<title>Vacoomy</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  :root { --bg:#f0f2f5; --panel:#fff; --accent:#2b6ef6; --danger:#e63946; }
-  html,body { height:100%; margin:0; }
-  body { display:flex; align-items:center; justify-content:center; background:var(--bg); font-family:Inter,Segoe UI,Roboto,Arial,sans-serif; }
-  #wrapper { width:100%; max-width:900px; height:100%; max-height:820px; position:relative; display:flex; align-items:center; justify-content:center; }
-  canvas { background:var(--panel); border:2px solid #000; display:block; touch-action:none; }
-  #hud { position:absolute; top:12px; left:12px; display:flex; gap:12px; align-items:center; z-index:6; }
-  .badge { background:rgba(0,0,0,0.7); color:#fff; padding:6px 10px; border-radius:8px; font-weight:600; }
-  #timer { font-size:16px; }
-  #score { font-size:16px; }
-  #level { font-size:16px; }
-  /* Overlay (start / end / ranking) */
-  #overlay { position:absolute; inset:0; background:rgba(0,0,0,0.6); display:flex; align-items:center; justify-content:center; z-index:10; }
-  #panel { width:92%; max-width:420px; background:var(--panel); border-radius:12px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,0.2); color:#111; text-align:center; }
-  #panel h1 { margin:0 0 10px; font-size:22px; }
-  #panel p { margin:0 0 14px; color:#333; }
-  .btn { background:var(--accent); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-weight:700; cursor:pointer; }
-  .btn.secondary { background:#ddd; color:#111; margin-left:8px; }
-  input[type="text"] { width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-top:8px; box-sizing:border-box; }
-  #rankingList { text-align:left; max-height:220px; overflow:auto; margin-top:10px; border-radius:8px; padding:8px; background:#f8f9fb; }
-  #rankingList li { padding:6px 4px; border-bottom:1px dashed #eee; display:flex; justify-content:space-between; }
-  .small { font-size:13px; color:#666; }
-  footer.small { margin-top:8px; font-size:12px; color:#666; }
-  /* responsive */
-  @media (max-width:700px){
-    #wrapper { padding:12px; }
-    #panel { width:95%; padding:16px; }
-    canvas { width:100%; height:calc(100vw - 40px); max-width:700px; max-height:700px; }
+  body {
+    margin: 0;
+    background: #222;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    font-family: Arial, sans-serif;
+    color: white;
+  }
+  #game {
+    position: relative;
+    width: 360px;
+    height: 480px;
+    background: #333;
+    border-radius: 10px;
+    overflow: hidden;
+    touch-action: none;
+  }
+  #player {
+    font-size: 36px;
+    position: absolute;
+  }
+  .number {
+    position: absolute;
+    font-size: 20px;
+    color: yellow;
+    font-weight: bold;
+  }
+  #cone {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    background: rgba(255,255,255,0.15);
+    clip-path: polygon(0 0, 100% 50%, 0 100%);
+    transform-origin: left center;
+  }
+  #overlay, #usernameScreen, #rankingScreen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: #000c;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+  }
+  button {
+    padding: 12px 18px;
+    border: none;
+    border-radius: 8px;
+    background: #4CAF50;
+    color: white;
+    font-size: 18px;
+    margin-top: 12px;
+  }
+  input {
+    padding: 10px;
+    font-size: 18px;
+    width: 200px;
+    text-align: center;
+    margin-bottom: 10px;
   }
 </style>
+
+<!-- Supabase Client -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
-  <div id="wrapper">
-    <canvas id="gameCanvas" width="700" height="700" tabindex="0"></canvas>
 
-    <div id="hud">
-      <div id="score" class="badge">Score: 0</div>
-      <div id="timer" class="badge">02:00</div>
-      <div id="level" class="badge">Level: 1</div>
-    </div>
+<div id="game">
+  <div id="player">🤖</div>
+  <div id="cone"></div>
 
-    <div id="overlay">
-      <div id="panel">
-        <h1>Vacoomy — Robot Clean</h1>
-        <p>Create your name and press Start. Mobile & desktop supported. Level up by scoring points — each level increases the pull radius (session only).</p>
-
-        <label class="small">Enter name (max 20 chars)</label>
-        <input id="usernameInput" type="text" maxlength="20" placeholder="Player123" />
-
-        <div style="margin-top:12px;">
-          <button id="startBtn" class="btn">Start</button>
-          <button id="viewRankingBtn" class="btn secondary">View Global Ranking</button>
-        </div>
-
-        <footer class="small">Scores are saved to global ranking (Supabase). Level resets each session.</footer>
-      </div>
-    </div>
+  <div id="usernameScreen">
+    <h2>Enter Username</h2>
+    <input id="usernameInput" maxlength="12" />
+    <button onclick="setUsername()">Continue</button>
   </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <div id="overlay">
+    <h1>Vacoomy</h1>
+    <p>Collect as many numbers as you can in 2 minutes!</p>
+    <button onclick="startGame()">Start</button>
+  </div>
+
+  <div id="rankingScreen" style="display:none;">
+    <h2>Global Ranking</h2>
+    <div id="rankingList"></div>
+    <button onclick="restart()">Play Again</button>
+  </div>
+</div>
+
 <script>
-/* --------------------------
-  CONFIG — update only if needed
----------------------------*/
-// Your Supabase info (already provided by you)
-const SUPABASE_URL = `https://rwpzycqetqfeasveviho.supabase.co`;
-const SUPABASE_KEY = `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3cHp5Y3FldHFmZWFzdmV2aWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMzEwOTYsImV4cCI6MjA4MDcwNzA5Nn0.Rj0zvPhqgfJBIcp_RA6kmRj-vLpBumz-Tu0BNRQoKmI`;
+/*** SUPABASE CONFIG ***/
+const SUPABASE_URL = "https://rwpzycqetqfeasveviho.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJ3cHp5Y3FldHFmZWFzdmV2aWhvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjUxMzEwOTYsImV4cCI6MjA4MDcwNzA5Nn0.Rj0zvPhqgfJBIcp_RA6kmRj-vLpBumz-Tu0BNRQoKmI";
 
-// create supabase client safely
-let supabase = null;
-try {
-  supabase = supabaseJs.createClient(SUPABASE_URL, SUPABASE_KEY);
-} catch(e){
-  console.warn("Supabase init error:", e);
-  supabase = null;
-}
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-/* --------------------------
-  GAME VARIABLES
----------------------------*/
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-const scoreEl = document.getElementById('score');
-const timerEl = document.getElementById('timer');
-const levelEl = document.getElementById('level');
-
-const overlay = document.getElementById('overlay');
-const startBtn = document.getElementById('startBtn');
-const viewRankingBtn = document.getElementById('viewRankingBtn');
-const usernameInput = document.getElementById('usernameInput');
-
-let gameWidth = canvas.width;
-let gameHeight = canvas.height;
-
-let vacuum = { x: gameWidth/2, y: gameHeight/2, size: 48, emoji: "🤖" };
-let pullRadiusBase = 60; // base pull radius (will scale with level)
-let pullRadius = pullRadiusBase;
-let numbers = [];
-let score = 0;
-let totalTime = 120; // seconds
-let elapsedFrames = 0;
-let fps = 60;
-let gameRunning = false;
-let targetX = null, targetY = null;
-let spawnInterval = null;
-let keys = {};
-let level = 1;
-let nextLevelThreshold = 20; // points to reach next level
 let username = "";
+let score = 0;
+let timeLeft = 120;
+let player = document.getElementById("player");
+let cone = document.getElementById("cone");
+let game = document.getElementById("game");
 
-/* --------------------------
-  HELPERS
----------------------------*/
-function rand(min,max){ return Math.random()*(max-min)+min; }
-function clamp(v,a,b){ return Math.max(a, Math.min(b, v)); }
+let px = 150, py = 200, angle = 0;
 
-/* --------------------------
-  SPAWN
----------------------------*/
-function spawnNumbers(){
-  if(!gameRunning) return;
-  // spawn count increases slightly with level
-  const spawnCount = 2 + Math.min(level, 6);
-  for(let i=0;i<spawnCount;i++){
-    const val = Math.floor(Math.random()*9)+1;
-    numbers.push({
-      x: rand(20, gameWidth-20),
-      y: rand(20, gameHeight-20),
-      value: val,
-      ttl: val * fps, // frames
-      vx: 0, vy: 0
-    });
-  }
+function setUsername() {
+  username = document.getElementById("usernameInput").value.trim();
+  if (!username) return;
+  document.getElementById("usernameScreen").style.display = "none";
 }
 
-/* --------------------------
-  DRAW
----------------------------*/
-function drawVacuum(){
-  // visible pull area
-  ctx.save();
-  // translucent fill
-  ctx.fillStyle = 'rgba(50,120,255,0.12)';
-  ctx.beginPath();
-  ctx.arc(vacuum.x, vacuum.y, pullRadius, 0, Math.PI*2);
-  ctx.fill();
-  // stroke for clarity
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = 'rgba(50,120,255,0.32)';
-  ctx.beginPath();
-  ctx.arc(vacuum.x, vacuum.y, pullRadius, 0, Math.PI*2);
-  ctx.stroke();
-  ctx.restore();
-
-  // robot emoji
-  ctx.font = `${vacuum.size}px serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(vacuum.emoji, vacuum.x, vacuum.y);
-}
-
-function drawNumbers(){
-  ctx.save();
-  ctx.font = '20px Arial';
-  for(let num of numbers){
-    ctx.fillStyle = '#d64949';
-    ctx.fillText(num.value, num.x, num.y);
-  }
-  ctx.restore();
-}
-
-/* --------------------------
-  UPDATE
----------------------------*/
-function update(){
-  if(!gameRunning) return;
-
-  // keyboard movement (WASD)
-  if(keys['w']) vacuum.y -= 5;
-  if(keys['s']) vacuum.y += 5;
-  if(keys['a']) vacuum.x -= 5;
-  if(keys['d']) vacuum.x += 5;
-
-  // touch target mobile movement (smooth)
-  if(targetX !== null && targetY !== null){
-    const dx = targetX - vacuum.x;
-    const dy = targetY - vacuum.y;
-    vacuum.x += dx * 0.06;
-    vacuum.y += dy * 0.06;
-  }
-
-  // bounds
-  vacuum.x = clamp(vacuum.x, 0, gameWidth);
-  vacuum.y = clamp(vacuum.y, 0, gameHeight);
-
-  // pull logic: numbers within pullRadius accelerate toward vacuum
-  for(let i = numbers.length -1; i >= 0; i--){
-    const n = numbers[i];
-    const dx = vacuum.x - n.x;
-    const dy = vacuum.y - n.y;
-    const dist = Math.hypot(dx,dy);
-
-    if(dist < pullRadius){
-      // pull strength depends on distance and level; higher level -> stronger pull
-      const strength = 0.03 + (level-1)*0.01 + ((pullRadius - dist)/pullRadius)*0.02;
-      n.x += dx * strength;
-      n.y += dy * strength;
-    }
-
-    // TTL decrease
-    n.ttl--;
-    // if reached vacuum (small threshold) collect
-    if(dist < 26){
-      score += n.value;
-      numbers.splice(i,1);
-      checkLevelUp();
-    } else if(n.ttl <= 0){
-      numbers.splice(i,1);
-    }
-  }
-
-  // timer frames
-  elapsedFrames++;
-
-  // update HUD
-  scoreEl.textContent = `Score: ${score}`;
-  const remainingSec = Math.max(0, totalTime - Math.floor(elapsedFrames / fps));
-  const mins = String(Math.floor(remainingSec/60)).padStart(2,'0');
-  const secs = String(remainingSec % 60).padStart(2,'0');
-  timerEl.textContent = `${mins}:${secs}`;
-  levelEl.textContent = `Level: ${level}`;
-
-  // end game
-  if(remainingSec <= 0){
-    endGame();
-  }
-}
-
-/* --------------------------
-  LEVEL
----------------------------*/
-function checkLevelUp(){
-  if(score >= nextLevelThreshold){
-    level++;
-    // increase next threshold progressively
-    nextLevelThreshold += 20 + (level-1)*10;
-    // increase pullRadius a bit
-    pullRadius = pullRadiusBase + (level-1) * 12;
-    // visual feedback (brief)
-    flashMessage(`Level up! Level ${level}`, 1200);
-  }
-}
-
-/* --------------------------
-  GAME FLOW
----------------------------*/
-function startGame(){
-  username = (usernameInput.value || "").trim().slice(0,20) || "Player";
-  // reset session-level values
-  level = 1;
-  nextLevelThreshold = 20;
-  pullRadius = pullRadiusBase;
-  elapsedFrames = 0;
+function startGame() {
   score = 0;
-  numbers = [];
-  targetX = null; targetY = null;
-  scoreEl.textContent = `Score: ${score}`;
-  levelEl.textContent = `Level: ${level}`;
-  // hide overlay
-  overlay.style.display = 'none';
-  // ensure canvas visible and focused
-  canvas.focus();
-  gameRunning = true;
-  // spawn loop
-  if(spawnInterval) clearInterval(spawnInterval);
-  spawnInterval = setInterval(spawnNumbers, 500);
-}
-
-function endGame(){
-  gameRunning = false;
-  if(spawnInterval) { clearInterval(spawnInterval); spawnInterval = null; }
-  // show overlay with results and ranking
-  showEndOverlay();
-  // save global score to Supabase (best-effort, errors ignored)
-  saveScoreToSupabase();
-}
-
-/* --------------------------
-  RENDER LOOP
----------------------------*/
-function loop(){
-  ctx.clearRect(0,0,gameWidth,gameHeight);
-  update();
-  drawVacuum();
-  drawNumbers();
+  timeLeft = 120;
+  document.getElementById("overlay").style.display = "none";
+  spawnNumbers();
+  setInterval(() => {
+    timeLeft--;
+    if (timeLeft <= 0) endGame();
+  }, 1000);
   requestAnimationFrame(loop);
 }
-requestAnimationFrame(loop);
 
-/* --------------------------
-  INPUT EVENTS
----------------------------*/
-// global keyboard
-document.addEventListener('keydown', (e)=>{
-  const k = e.key.toLowerCase();
-  if(["w","a","s","d"].includes(k)) { keys[k] = true; e.preventDefault(); }
+/*** MOVE SYSTEM (Mobile + PC) ***/
+let keys = {};
+
+document.addEventListener("keydown", e => {
+  if ("wasd".includes(e.key)) keys[e.key] = true;
 });
-document.addEventListener('keyup', (e)=>{
-  const k = e.key.toLowerCase();
-  if(["w","a","s","d"].includes(k)) { keys[k] = false; e.preventDefault(); }
+document.addEventListener("keyup", e => {
+  if ("wasd".includes(e.key)) keys[e.key] = false;
 });
 
-// touch / mobile
-canvas.addEventListener('touchstart', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.touches[0].clientX - rect.left;
-  targetY = e.touches[0].clientY - rect.top;
-});
-canvas.addEventListener('touchmove', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.touches[0].clientX - rect.left;
-  targetY = e.touches[0].clientY - rect.top;
-});
-canvas.addEventListener('touchend', ()=>{
-  // don't reset target immediately: keep as last touch for smoothing
+game.addEventListener("touchmove", e => {
+  let t = e.touches[0];
+  px = t.clientX - 40;
+  py = t.clientY - 40;
 });
 
-// also allow mouse click to move target
-canvas.addEventListener('mousedown', (e)=>{
-  const rect = canvas.getBoundingClientRect();
-  targetX = e.clientX - rect.left;
-  targetY = e.clientY - rect.top;
-});
-canvas.addEventListener('mouseup', ()=>{ /* keep last pos */});
+/*** GAME LOOP ***/
+function loop() {
+  let speed = 2;
 
-/* --------------------------
-  UI / OVERLAY HANDLING
----------------------------*/
-function flashMessage(msg, ms=1000){
-  const prev = message.innerText;
-  message.innerText = msg;
-  overlay.style.display = 'flex';
-  setTimeout(()=>{
-    if(gameRunning) overlay.style.display = 'none';
-    message.innerText = prev;
-  }, ms);
+  if (keys.w) py -= speed;
+  if (keys.s) py += speed;
+  if (keys.a) px -= speed;
+  if (keys.d) px += speed;
+
+  player.style.left = px + "px";
+  player.style.top = py + "px";
+
+  angle = Math.atan2(mouseY - py, mouseX - px);
+  cone.style.left = px + "px";
+  cone.style.top = py + "px";
+  cone.style.transform = `rotate(${angle}rad)`;
+
+  checkCollect();
+  requestAnimationFrame(loop);
 }
 
-startBtn.addEventListener('click', ()=>{
-  // small debounce
-  startBtn.disabled = true;
-  setTimeout(()=> startBtn.disabled = false, 600);
-  startGame();
+/*** NUMBER SPAWN ***/
+function spawnNumbers() {
+  setInterval(() => {
+    let n = document.createElement("div");
+    n.className = "number";
+    n.textContent = Math.floor(Math.random()*9)+1;
+    n.style.left = Math.random()*300 + "px";
+    n.style.top = Math.random()*420 + "px";
+    game.appendChild(n);
+  }, 600);
+}
+
+let mouseX = 0, mouseY = 0;
+document.addEventListener("mousemove", e => {
+  mouseX = e.clientX;
+  mouseY = e.clientY;
 });
 
-viewRankingBtn.addEventListener('click', async ()=>{
-  await showRankingOverlay();
-});
-
-/* --------------------------
-  SUPABASE: save & show ranking
----------------------------*/
-async function saveScoreToSupabase(){
-  if(!supabase) return;
-  // try to insert username+score; if fails (no username column), fallback to only score
-  try {
-    // prefer to send username when present
-    if(username) {
-      await supabase.from('scores').insert([{ username: username, score: score }]);
-    } else {
-      await supabase.from('scores').insert([{ score: score }]);
+/*** COLLECTION LOGIC ***/
+function checkCollect() {
+  document.querySelectorAll(".number").forEach(n => {
+    let nx = n.offsetLeft, ny = n.offsetTop;
+    let dx = nx - px, dy = ny - py;
+    if (dx*dx + dy*dy < 1600) {
+      score += parseInt(n.textContent);
+      n.remove();
     }
-  } catch(e){
-    // fallback trying only score
-    try {
-      await supabase.from('scores').insert([{ score: score }]);
-    } catch(err){
-      console.warn("Supabase insert failed:", err);
-    }
-  }
-}
-
-async function fetchGlobalRanking(){
-  if(!supabase) {
-    return { ok:false, ranking: [] };
-  }
-  try {
-    // attempt to select username if present, otherwise select score only
-    // First try with username
-    let { data, error } = await supabase.from('scores').select('username, score').order('score', { ascending:false }).limit(10);
-    if(error) {
-      // maybe username column missing -> try only score
-      let res = await supabase.from('scores').select('score').order('score', { ascending:false }).limit(10);
-      if(res.error) return { ok:false, ranking:[] };
-      return { ok:true, ranking: res.data.map((r,i)=>({ rank:i+1, name: r.score ? 'Player' : 'Player', score: r.score })) };
-    }
-    return { ok:true, ranking: data.map((r,i)=>({ rank:i+1, name: r.username || 'Player', score: r.score })) };
-  } catch(e){
-    console.warn("fetchGlobalRanking error:", e);
-    return { ok:false, ranking: [] };
-  }
-}
-
-/* --------------------------
-  OVERLAY: show ranking inside panel
----------------------------*/
-async function showEndOverlay(){
-  // create a new panel content replacing current panel temporarily
-  overlay.style.display = 'flex';
-  const panel = document.querySelector('#panel');
-  panel.innerHTML = `
-    <h1>Game Over</h1>
-    <p>Your score: <strong>${score}</strong></p>
-    <p class="small">Name: <strong>${username || 'Player'}</strong></p>
-    <div style="margin-top:10px;">
-      <button id="replayBtn" class="btn">Play Again</button>
-      <button id="viewRankBtn" class="btn secondary">View Global Ranking</button>
-    </div>
-    <div id="rankingListContainer" style="margin-top:12px;"></div>
-  `;
-
-  document.getElementById('replayBtn').addEventListener('click', ()=>{
-    // restore original overlay content (simplest: reload page overlay)
-    location.reload(); // quick way to reset everything (session level cleared)
-  });
-  document.getElementById('viewRankBtn').addEventListener('click', async ()=>{
-    const rc = await fetchGlobalRanking();
-    const listCont = document.getElementById('rankingListContainer');
-    if(!rc.ok || !rc.ranking.length){
-      listCont.innerHTML = `<p class="small">Global ranking not available.</p>`;
-      return;
-    }
-    const ul = document.createElement('ul');
-    ul.style.listStyle = 'none';
-    ul.style.padding = '0';
-    ul.id = 'rankingList';
-    for(const r of rc.ranking){
-      const li = document.createElement('li');
-      li.style.display = 'flex';
-      li.style.justifyContent = 'space-between';
-      li.style.padding = '6px 4px';
-      li.innerHTML = `<span>${r.rank}. ${escapeHtml(r.name)}</span><strong>${r.score}</strong>`;
-      ul.appendChild(li);
-    }
-    listCont.innerHTML = '';
-    listCont.appendChild(ul);
-  });
-
-  // auto open ranking view
-  document.getElementById('viewRankBtn').click();
-}
-
-/* helper to show the overlay ranking directly */
-async function showRankingOverlay(){
-  // temporarily replace panel content for ranking view
-  overlay.style.display = 'flex';
-  const panel = document.querySelector('#panel');
-  panel.innerHTML = `
-    <h1>Global Ranking</h1>
-    <div id="rankingListBox" style="margin-top:8px; max-height:300px; overflow:auto; text-align:left; background:#f8f9fb; padding:8px; border-radius:8px;"></div>
-    <div style="margin-top:12px;">
-      <button id="closeRankBtn" class="btn secondary">Close</button>
-      <button id="startNowBtn" class="btn">Start</button>
-    </div>
-  `;
-  async function render(){
-    const box = document.getElementById('rankingListBox');
-    box.innerHTML = `<p class="small">Loading...</p>`;
-    const rc = await fetchGlobalRanking();
-    if(!rc.ok || !rc.ranking.length){
-      box.innerHTML = `<p class="small">Global ranking not available.</p>`;
-      return;
-    }
-    const ul = document.createElement('ul');
-    ul.style.listStyle='none';
-    ul.style.padding='0';
-    for(const r of rc.ranking){
-      const li = document.createElement('li');
-      li.style.display='flex';
-      li.style.justifyContent='space-between';
-      li.style.padding='6px 4px';
-      li.innerHTML = `<span>${r.rank}. ${escapeHtml(r.name)}</span><strong>${r.score}</strong>`;
-      ul.appendChild(li);
-    }
-    box.innerHTML = '';
-    box.appendChild(ul);
-  }
-  document.getElementById('closeRankBtn').addEventListener('click', ()=>{
-    // reload original overlay panel
-    location.reload();
-  });
-  document.getElementById('startNowBtn').addEventListener('click', ()=>{
-    // return to original overlay UI: reload page to restore initial state
-    location.reload();
-  });
-  render();
-}
-
-/* --------------------------
-  UTIL
----------------------------*/
-function escapeHtml(str){
-  return String(str).replace(/[&<>"'`=\/]/g, function(s) {
-    return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','/':'&#x2F;','`':'&#x60;','=':'&#x3D;' })[s];
   });
 }
 
-/* --------------------------
-  INITIAL SETUP
----------------------------*/
-// make sure canvas is focusable
-canvas.setAttribute('tabindex', '0');
+/*** END GAME → SAVE RANKING ***/
+async function endGame() {
+  document.getElementById("rankingScreen").style.display = "flex";
 
-// prefill username with something localStorage? (we don't store unless user wants)
-usernameInput.value = localStorage.getItem('vacoomy_name') || '';
+  await db.from("scores").insert({ username, score });
 
-// Save username locally for convenience (not sent unless used)
-usernameInput.addEventListener('change', () => {
-  try { localStorage.setItem('vacoomy_name', usernameInput.value.slice(0,20)); } catch(e){}
-});
-
-// Resize handling
-function resizeCanvas(){
-  // maintain square canvas based on available wrapper size
-  const wrapper = document.getElementById('wrapper');
-  const maxW = Math.min(window.innerWidth - 40, 900);
-  const size = Math.min(maxW, window.innerHeight - 80);
-  canvas.width = size;
-  canvas.height = size;
-  gameWidth = canvas.width;
-  gameHeight = canvas.height;
-  // reposition vacuum to center if not running
-  if(!gameRunning){
-    vacuum.x = gameWidth/2;
-    vacuum.y = gameHeight/2;
-  }
+  loadRanking();
 }
-window.addEventListener('resize', resizeCanvas);
-resizeCanvas();
+
+/*** LOAD GLOBAL RANKING ***/
+async function loadRanking() {
+  const { data } = await db
+    .from("scores")
+    .select("*")
+    .order("score", { ascending:false })
+    .limit(10);
+
+  let txt = "";
+  data.forEach((row, i) => {
+    txt += `${i+1}. ${row.username} — ${row.score}<br>`;
+  });
+
+  document.getElementById("rankingList").innerHTML = txt;
+}
+
+/*** RESTART ***/
+function restart() {
+  location.reload();
+}
 
 </script>
+
 </body>
 </html>
